@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Cambiar clave{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-5">
+    <div class="card shadow-sm">
+      <div class="card-header dongbu-card-header"><i class="fa-solid fa-key me-2"></i>Cambiar Contraseña</div>
+      <div class="card-body">
+        <form method="POST">
+          <div class="mb-3">
+            <label class="form-label">Clave actual</label>
+            <input type="password" name="actual" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Nueva clave</label>
+            <input type="password" name="nueva" class="form-control" required minlength="6">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Confirmar nueva clave</label>
+            <input type="password" name="confirmar" class="form-control" required minlength="6">
+          </div>
+          <button type="submit" class="btn btn-warning text-dark fw-semibold w-100">Actualizar clave</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

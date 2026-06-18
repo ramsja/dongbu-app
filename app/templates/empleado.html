@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Registro de Empleado - Dongbu{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-8 col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-header dongbu-card-header">
+        <i class="fa-solid fa-clipboard-list me-2"></i>Registrar Vacación / Incapacidad
+      </div>
+      <div class="card-body">
+
+        <form id="form-registro" autocomplete="off">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Número de DUI</label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="fa-solid fa-id-card"></i></span>
+              <input type="text" class="form-control" id="dui" name="dui" placeholder="Ej. 01798051-2" required>
+              <button type="button" id="btn-buscar" class="btn btn-outline-secondary">Buscar</button>
+            </div>
+            <div id="dui-feedback" class="form-text"></div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-7">
+              <label class="form-label">Nombre completo</label>
+              <input type="text" class="form-control" id="nombre" name="nombre" readonly required>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label">Puesto de trabajo</label>
+              <input type="text" class="form-control" id="cargo" name="cargo" readonly required>
+            </div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label">Correo electrónico</label>
+              <div class="input-group">
+                <span class="input-group-text"><i class="fa-solid fa-envelope"></i></span>
+                <input type="email" class="form-control" id="correo" name="correo" placeholder="Ej. correo@correo.com" readonly>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Teléfono / Celular</label>
+              <div class="input-group">
+                <span class="input-group-text"><i class="fa-solid fa-phone"></i></span>
+                <input type="tel" class="form-control" id="telefono" name="telefono" placeholder="Ej. 7871-3697" readonly>
+              </div>
+            </div>
+          </div>
+
+          <hr>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Tipo de registro</label>
+            <div class="btn-group w-100" role="group">
+              <input type="radio" class="btn-check" name="tipo" id="tipo-vacacion" value="vacacion" autocomplete="off" checked>
+              <label class="btn btn-outline-success" for="tipo-vacacion"><i class="fa-solid fa-umbrella-beach me-1"></i>Vacación</label>
+
+              <input type="radio" class="btn-check" name="tipo" id="tipo-incapacidad" value="incapacidad" autocomplete="off">
+              <label class="btn btn-outline-danger" for="tipo-incapacidad"><i class="fa-solid fa-suitcase-medical me-1"></i>Incapacidad</label>
+            </div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label">Fecha de inicio</label>
+              <input type="date" class="form-control" id="fecha_inicio" name="fecha_inicio" max="{{ today }}" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Fecha de finalización</label>
+              <input type="date" class="form-control" id="fecha_fin" name="fecha_fin" required>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <span class="badge bg-secondary-subtle text-dark border">Días a registrar: <strong id="dias-calculados">0</strong></span>
+          </div>
+
+          <div class="mb-3" id="foto-wrapper" style="display:none;">
+            <label class="form-label fw-semibold">Foto o documento de incapacidad <span class="text-danger">*</span></label>
+            <input type="file" class="form-control" id="foto" name="foto" accept=".jpg,.jpeg,.png,.pdf">
+            <div class="form-text">Formatos permitidos: JPG, PNG o PDF. Máximo 8 MB.</div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Observaciones (opcional)</label>
+            <textarea class="form-control" id="observaciones" name="observaciones" rows="2" maxlength="300"></textarea>
+          </div>
+
+          <div id="form-alert"></div>
+
+          <button type="submit" class="btn btn-warning text-dark fw-semibold w-100" id="btn-enviar">
+            <i class="fa-solid fa-paper-plane me-1"></i>Enviar registro
+          </button>
+        </form>
+
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/empleado.js') }}"></script>
+{% endblock %}

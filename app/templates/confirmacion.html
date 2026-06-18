@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Confirmación de registro{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-7">
+    <div class="card shadow-sm border-success">
+      <div class="card-body text-center py-5">
+        <i class="fa-solid fa-circle-check fa-4x text-success mb-3"></i>
+        <h3 class="fw-bold">¡Registro guardado!</h3>
+        {% if r.tipo == 'incapacidad' %}
+          <div class="alert alert-success d-inline-block px-4 py-2 my-2 border border-success-subtle rounded-3">
+            <i class="fa-solid fa-circle-check me-2"></i>La incapacidad y su constancia se han recibido exitosamente.
+          </div>
+        {% endif %}
+        <p class="text-muted">Folio No. <strong>{{ r.id }}</strong></p>
+
+        <table class="table table-borderless text-start mt-4">
+          <tr><th>Empleado:</th><td>{{ r.nombre }} ({{ r.codigo_empleado }})</td></tr>
+          <tr><th>Puesto:</th><td>{{ r.cargo }}</td></tr>
+          <tr><th>Tipo:</th><td>{{ 'Vacación' if r.tipo == 'vacacion' else 'Incapacidad' }}</td></tr>
+          <tr><th>Del:</th><td>{{ r.fecha_inicio }}</td></tr>
+          <tr><th>Al:</th><td>{{ r.fecha_fin }}</td></tr>
+          <tr><th>Días:</th><td>{{ r.dias }}</td></tr>
+          {% if r.observaciones %}<tr><th>Observaciones:</th><td>{{ r.observaciones }}</td></tr>{% endif %}
+        </table>
+
+        <div class="alert alert-info mt-4 text-start small border border-info-subtle rounded-3">
+          <i class="fa-solid fa-circle-info me-2 text-info"></i>
+          Si tienes alguna consulta sobre tu aprobación, te equivocaste en algún dato o subiste mal algo, por favor comunícate a Recursos Humanos escribiendo al <strong>78713697</strong> para obtener ayuda.
+        </div>
+
+        <a href="{{ url_for('empleado_form') }}" class="btn btn-warning text-dark fw-semibold mt-2">
+          <i class="fa-solid fa-arrow-left me-1"></i>Hacer otro registro
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

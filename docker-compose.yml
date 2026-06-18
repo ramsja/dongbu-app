@@ -1,0 +1,15 @@
+services:
+  dongbu-app:
+    build: .
+    container_name: dongbu-vacaciones
+    restart: unless-stopped
+    ports:
+      - "8080:5000"
+    environment:
+      - SECRET_KEY=cambia-esta-clave-larga-y-aleatoria
+      - ADMIN_USER=admin
+      - ADMIN_PASS=dongbu2026
+      - DB_PATH=/usr/src/app/data/dongbu.db
+    volumes:
+      - ./data:/usr/src/app/data
+      - ./app/uploads:/usr/src/app/app/uploads

@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}Panel de Administración - Dongbu{% endblock %}
+{% block content %}
+
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card stat-card">
+      <div class="card-body">
+        <div class="text-muted small">Empleados activos</div>
+        <div class="fs-2 fw-bold">{{ total_empleados }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card stat-card border-success">
+      <div class="card-body">
+        <div class="text-muted small">Vacaciones registradas</div>
+        <div class="fs-2 fw-bold text-success">{{ total_vacaciones.c }} <span class="fs-6 text-muted">({{ total_vacaciones.d }} días)</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card stat-card border-danger">
+      <div class="card-body">
+        <div class="text-muted small">Incapacidades registradas</div>
+        <div class="fs-2 fw-bold text-danger">{{ total_incapacidades.c }} <span class="fs-6 text-muted">({{ total_incapacidades.d }} días)</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-header dongbu-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <span><i class="fa-solid fa-list me-2"></i>Registros</span>
+    <a href="{{ url_for('admin_export_csv') }}" class="btn btn-sm btn-outline-light">
+      <i class="fa-solid fa-file-csv me-1"></i>Exportar CSV
+    </a>
+  </div>
+  <div class="card-body">
+
+    <form method="GET" class="row g-2 mb-3">
+      <div class="col-md-3">
+        <input type="text" name="codigo" value="{{ filtros.codigo }}" class="form-control form-control-sm" placeholder="Código empleado">
+      </div>
+      <div class="col-md-3">
+        <select name="tipo" class="form-select form-select-sm">
+          <option value="">Todos los tipos</option>
+          <option value="vacacion" {% if filtros.tipo=='vacacion' %}selected{% endif %}>Vacación</option>
+          <option value="incapacidad" {% if filtros.tipo=='incapacidad' %}selected{% endif %}>Incapacidad</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <input type="date" name="desde" value="{{ filtros.desde }}" class="form-control form-control-sm">
+      </div>
+      <div class="col-md-2">
+        <input type="date" name="hasta" value="{{ filtros.hasta }}" class="form-control form-control-sm">
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-sm btn-primary w-100" type="submit"><i class="fa-solid fa-filter me-1"></i>Filtrar</button>
+      </div>
+    </form>
+
+    <div class="table-responsive">
+      <table class="table table-striped table-hover align-middle">
+        <thead>
+          <tr>
+            <th>Folio</th>
+            <th>Código</th>
+            <th>Nombre</th>
+            <th>Puesto</th>
+            <th>Tipo</th>
+            <th>Del</th>
+            <th>Al</th>
+            <th>Días</th>
+            <th>Foto</th>
+            <th>Registrado</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in registros %}
+          <tr>
+            <td>{{ r.id }}</td>
+            <td>{{ r.codigo_empleado }}</td>
+            <td>{{ r.nombre }}</td>
+            <td>{{ r.cargo }}</td>
+            <td>
+              {% if r.tipo == 'vacacion' %}
+                <span class="badge bg-success-subtle text-success border border-success-subtle">Vacación</span>
+              {% else %}
+                <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Incapacidad</span>
+              {% endif %}
+            </td>
+            <td>{{ r.fecha_inicio }}</td>
+            <td>{{ r.fecha_fin }}</td>
+            <td>{{ r.dias }}</td>
+            <td>
+              {% if r.foto_path %}
+                <a href="{{ url_for('admin_foto', filename=r.foto_path) }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                  <i class="fa-solid fa-image"></i>
+                </a>
+              {% else %}
+                &mdash;
+              {% endif %}
+            </td>
+            <td class="small text-muted">{{ r.fecha_registro }}</td>
+            <td>
+              {% if r.estado == 'aprobado' %}
+                <span class="badge bg-success"><i class="fa-solid fa-circle-check me-1"></i>Aprobado</span>
+              {% elif r.estado == 'rechazado' %}
+                <span class="badge bg-danger"><i class="fa-solid fa-circle-xmark me-1"></i>Rechazado</span>
+              {% else %}
+                <span class="badge bg-warning text-dark"><i class="fa-solid fa-clock me-1"></i>Pendiente</span>
+              {% endif %}
+            </td>
+            <td>
+              <div class="d-flex gap-1">
+                {% if r.estado == 'pendiente' %}
+                  <form method="POST" action="{{ url_for('admin_approve_registro', id=r.id) }}" class="d-inline">
+                    <button class="btn btn-sm btn-success py-1 px-2" title="Aprobar" type="submit">
+                      <i class="fa-solid fa-check"></i>
+                    </button>
+                  </form>
+                  <form method="POST" action="{{ url_for('admin_reject_registro', id=r.id) }}" class="d-inline">
+                    <button class="btn btn-sm btn-warning text-dark py-1 px-2" title="Rechazar" type="submit">
+                      <i class="fa-solid fa-xmark"></i>
+                    </button>
+                  </form>
+                {% endif %}
+                <form method="POST" action="{{ url_for('admin_delete_registro', id=r.id) }}" class="d-inline" onsubmit="return confirm('¿Estás seguro de que deseas eliminar este registro de prueba con Folio #{{ r.id }}?');">
+                  <button class="btn btn-sm btn-danger py-1 px-2" title="Eliminar" type="submit">
+                    <i class="fa-solid fa-trash-can"></i>
+                  </button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="12" class="text-center text-muted py-4">No hay registros con esos filtros.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

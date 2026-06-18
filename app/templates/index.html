@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Inicio - Dongbu{% endblock %}
+{% block content %}
+<div class="row justify-content-center mt-3">
+  <div class="col-12 col-md-10">
+    <div class="text-center mb-5">
+      <h1 class="fw-bold dongbu-title">Sistema de Vacaciones e Incapacidades</h1>
+      <p class="text-muted">Dongbu Corporation &mdash; Sucursal El Salvador</p>
+    </div>
+
+    <div class="row g-4 justify-content-center">
+      <div class="col-md-5">
+        <a href="{{ url_for('empleado_form') }}" class="card-link">
+          <div class="card option-card h-100 shadow-sm">
+            <div class="card-body text-center py-5">
+              <i class="fa-solid fa-user-clock fa-3x mb-3 text-warning"></i>
+              <h4 class="fw-bold">Soy Empleado</h4>
+              <p class="text-muted mb-0">Registra tus días de vacación o incapacidad ingresando tu código.</p>
+            </div>
+          </div>
+        </a>
+      </div>
+      <div class="col-md-5">
+        <a href="{{ url_for('admin_login') }}" class="card-link">
+          <div class="card option-card h-100 shadow-sm">
+            <div class="card-body text-center py-5">
+              <i class="fa-solid fa-chart-line fa-3x mb-3 text-primary"></i>
+              <h4 class="fw-bold">Soy Administrador</h4>
+              <p class="text-muted mb-0">Ingresa para ver los reportes y registros de todos los empleados.</p>
+            </div>
+          </div>
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

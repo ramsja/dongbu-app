@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+{% block title %}Empleados - Dongbu{% endblock %}
+{% block content %}
+<div class="card shadow-sm">
+  <div class="card-header dongbu-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <span><i class="fa-solid fa-users me-2"></i>Directorio de Empleados ({{ empleados|length }})</span>
+    <button type="button" class="btn btn-sm btn-outline-light" data-bs-toggle="modal" data-bs-target="#modalNuevoEmpleado">
+      <i class="fa-solid fa-user-plus me-1"></i>Agregar Empleado
+    </button>
+  </div>
+  <div class="card-body">
+    <form method="GET" class="mb-3">
+      <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Buscar por código, DUI, nombre o puesto...">
+    </form>
+    <div class="table-responsive">
+      <table class="table table-striped table-hover align-middle">
+        <thead>
+          <tr>
+            <th>Código</th>
+            <th>DUI</th>
+            <th>Nombre</th>
+            <th>Puesto</th>
+            <th>Fecha de ingreso</th>
+            <th>Correo</th>
+            <th>Teléfono</th>
+            <th class="text-center">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for e in empleados %}
+          <tr>
+            <td><strong>{{ e.codigo }}</strong></td>
+            <td class="text-nowrap">{{ e.dui or '&mdash;' }}</td>
+            <td>{{ e.nombre }}</td>
+            <td>{{ e.cargo }}</td>
+            <td>{{ e.fecha_ingreso }}</td>
+            <td>{{ e.correo or '&mdash;' }}</td>
+            <td class="text-nowrap">{{ e.telefono or '&mdash;' }}</td>
+            <td class="text-center text-nowrap">
+              <button type="button" class="btn btn-sm btn-outline-primary btn-editar"
+                data-codigo="{{ e.codigo }}"
+                data-dui="{{ e.dui or '' }}"
+                data-nombre="{{ e.nombre }}"
+                data-cargo="{{ e.cargo }}"
+                data-fecha="{{ e.fecha_ingreso or '' }}"
+                data-salario="{{ e.salario_mensual or 0 }}"
+                data-correo="{{ e.correo or '' }}"
+                data-telefono="{{ e.telefono or '' }}"
+                data-bs-toggle="modal" data-bs-target="#modalEditarEmpleado">
+                <i class="fa-solid fa-pen-to-square"></i>
+              </button>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="8" class="text-center text-muted py-4">Sin resultados.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal para agregar nuevo empleado -->
+<div class="modal fade" id="modalNuevoEmpleado" tabindex="-1" aria-labelledby="modalNuevoEmpleadoLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header dongbu-card-header text-white">
+        <h5 class="modal-title" id="modalNuevoEmpleadoLabel"><i class="fa-solid fa-user-plus me-2"></i>Nuevo Empleado</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form action="{{ url_for('admin_nuevo_empleado') }}" method="POST">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Número de DUI <span class="text-danger">*</span></label>
+            <input type="text" name="dui" class="form-control" placeholder="Ej. 01798051-2" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Nombre Completo <span class="text-danger">*</span></label>
+            <input type="text" name="nombre" class="form-control" placeholder="Nombre completo" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Puesto / Cargo <span class="text-danger">*</span></label>
+            <input type="text" name="cargo" class="form-control" placeholder="Puesto de trabajo" required>
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Código (opcional)</label>
+              <input type="text" name="codigo" class="form-control" placeholder="Ej. 1050">
+              <div class="form-text">Se autogenera si se deja vacío.</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Fecha de Ingreso</label>
+              <input type="date" name="fecha_ingreso" class="form-control">
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Salario Mensual (opcional)</label>
+            <input type="number" name="salario" step="0.01" class="form-control" placeholder="0.00">
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Correo Electrónico</label>
+              <input type="email" name="correo" class="form-control" placeholder="correo@ejemplo.com">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Teléfono / Celular</label>
+              <input type="text" name="telefono" class="form-control" placeholder="Ej. 7777-7777">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-warning text-dark fw-semibold">Guardar Empleado</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal para editar empleado existente -->
+<div class="modal fade" id="modalEditarEmpleado" tabindex="-1" aria-labelledby="modalEditarEmpleadoLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title" id="modalEditarEmpleadoLabel"><i class="fa-solid fa-pen-to-square me-2"></i>Editar Empleado</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form id="formEditarEmpleado" method="POST">
+        <div class="modal-body">
+          <input type="hidden" name="codigo" id="edit-codigo">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Código</label>
+            <input type="text" id="edit-codigo-display" class="form-control" readonly disabled>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Número de DUI</label>
+            <input type="text" name="dui" id="edit-dui" class="form-control" placeholder="Ej. 01798051-2">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Nombre Completo <span class="text-danger">*</span></label>
+            <input type="text" name="nombre" id="edit-nombre" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Puesto / Cargo <span class="text-danger">*</span></label>
+            <input type="text" name="cargo" id="edit-cargo" class="form-control" required>
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Fecha de Ingreso</label>
+              <input type="date" name="fecha_ingreso" id="edit-fecha" class="form-control">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Salario Mensual</label>
+              <input type="number" name="salario" id="edit-salario" step="0.01" class="form-control">
+            </div>
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Correo Electrónico</label>
+              <input type="email" name="correo" id="edit-correo" class="form-control" placeholder="correo@ejemplo.com">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Teléfono / Celular</label>
+              <input type="text" name="telefono" id="edit-telefono" class="form-control" placeholder="Ej. 7777-7777">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary fw-semibold">Guardar Cambios</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.btn-editar').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var codigo = this.dataset.codigo;
+      document.getElementById('edit-codigo').value = codigo;
+      document.getElementById('edit-codigo-display').value = codigo;
+      document.getElementById('edit-dui').value = this.dataset.dui;
+      document.getElementById('edit-nombre').value = this.dataset.nombre;
+      document.getElementById('edit-cargo').value = this.dataset.cargo;
+      document.getElementById('edit-fecha').value = this.dataset.fecha;
+      document.getElementById('edit-salario').value = this.dataset.salario;
+      document.getElementById('edit-correo').value = this.dataset.correo;
+      document.getElementById('edit-telefono').value = this.dataset.telefono;
+      document.getElementById('formEditarEmpleado').action = '/admin/empleados/editar/' + codigo;
+    });
+  });
+});
+</script>
+{% endblock %}
