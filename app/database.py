@@ -97,12 +97,15 @@ def init_db():
     if cur.fetchone()["c"] == 0:
         default_user = os.environ.get("ADMIN_USER", "admin")
         default_pass = os.environ.get("ADMIN_PASS", "dongbu2026")
-        cur.execute(
-            "INSERT INTO admin_users (username, password_hash, nombre_completo) VALUES (?,?,?)",
-            (default_user, generate_password_hash(default_pass), "Administrador RRHH"),
-        )
-        conn.commit()
-        print(f"[init_db] Usuario administrador creado -> usuario: {default_user} / clave: {default_pass}")
-        print("[init_db] IMPORTANTE: cambia esta clave despues del primer ingreso.")
+        try:
+            cur.execute(
+                "INSERT OR IGNORE INTO admin_users (username, password_hash, nombre_completo) VALUES (?,?,?)",
+                (default_user, generate_password_hash(default_pass), "Administrador RRHH"),
+            )
+            conn.commit()
+            print(f"[init_db] Usuario administrador creado -> usuario: {default_user} / clave: {default_pass}")
+            print("[init_db] IMPORTANTE: cambia esta clave despues del primer ingreso.")
+        except sqlite3.IntegrityError:
+            pass
 
     conn.close()
