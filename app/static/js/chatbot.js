@@ -32,14 +32,14 @@
       ],
     },
     correccion: {
-      msg: "El sistema no permite editar un registro ya enviado. Si te equivocaste, subiste mal algo, o tienes alguna consulta de aprobación, por favor escribe al número de Recursos Humanos: <b>78713697</b>.",
+      msg: "El sistema no permite editar un registro ya enviado. Si te equivocaste, subiste mal algo, o tienes alguna consulta de aprobación, por favor escribe al número de Recursos Humanos: <b>78562855</b>.",
       options: [
         { label: "Hablar con RRHH", next: "rrhh" },
         { label: "Volver al menú", next: "inicio" },
       ],
     },
     codigo: {
-      msg: "Tu código de empleado es el número que aparece en tu gafete o en tu recibo de pago (ejemplo: 0050). Si no encuentras tu código o necesitas ayuda, escribe al número de Recursos Humanos: <b>78713697</b>.",
+      msg: "Tu código de empleado es el número que aparece en tu gafete o en tu recibo de pago (ejemplo: 0050). Si no encuentras tu código o necesitas ayuda, escribe al número de Recursos Humanos: <b>78562855</b>.",
       options: [
         { label: "Hablar con RRHH", next: "rrhh" },
         { label: "Volver al menú", next: "inicio" },
@@ -58,7 +58,7 @@
       ],
     },
     rrhh: {
-      msg: "Para cualquier duda, consulta sobre tu aprobación o si necesitas ayuda tras haber subido mal algo, comunícate directamente con Recursos Humanos al <b>78713697</b>. Para otros temas, yo (el bot) te seguiré ayudando con gusto.",
+      msg: "Para cualquier duda, consulta sobre tu aprobación o si necesitas ayuda tras haber subido mal algo, comunícate directamente con Recursos Humanos al <b>78562855</b>. Para otros temas, yo (el bot) te seguiré ayudando con gusto.",
       options: [
         { label: "Volver al menú", next: "inicio" },
       ],
