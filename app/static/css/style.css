@@ -49,100 +49,27 @@ body {
   border-radius: 12px;
 }
 
-/* Chatbot */
+/* Chatbot / WhatsApp Link */
 .chatbot-bubble {
   position: fixed;
   bottom: 24px;
   right: 24px;
-  width: 58px;
-  height: 58px;
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
-  background: var(--dongbu-orange);
-  color: #14283d;
+  background: #25D366;
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.6rem;
+  font-size: 2rem;
   cursor: pointer;
   box-shadow: 0 6px 16px rgba(0,0,0,0.25);
   z-index: 1050;
   transition: transform 0.15s ease;
+  text-decoration: none;
 }
-.chatbot-bubble:hover { transform: scale(1.08); }
-
-.chatbot-panel {
-  position: fixed;
-  bottom: 96px;
-  right: 24px;
-  width: 340px;
-  max-height: 480px;
-  background: #fff;
-  border-radius: 14px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.25);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  z-index: 1050;
-}
-
-.chatbot-header {
-  background: var(--dongbu-navy);
-  color: #fff;
-  padding: 12px 14px;
-  font-weight: 600;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.chatbot-body {
-  padding: 12px;
-  overflow-y: auto;
-  flex: 1;
-  background: #f8f9fb;
-}
-
-.chat-msg {
-  margin-bottom: 10px;
-  display: flex;
-}
-.chat-msg.bot .bubble {
-  background: #e9ecef;
-  color: #212529;
-  border-radius: 12px 12px 12px 2px;
-}
-.chat-msg.user {
-  justify-content: flex-end;
-}
-.chat-msg.user .bubble {
-  background: var(--dongbu-navy);
-  color: #fff;
-  border-radius: 12px 12px 2px 12px;
-}
-.bubble {
-  padding: 8px 12px;
-  max-width: 85%;
-  font-size: 0.88rem;
-  line-height: 1.35;
-}
-
-.chat-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 6px 0 14px 0;
-}
-.chat-options button {
-  border: 1px solid var(--dongbu-navy);
-  background: #fff;
-  color: var(--dongbu-navy);
-  border-radius: 16px;
-  padding: 5px 12px;
-  font-size: 0.8rem;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-.chat-options button:hover {
-  background: var(--dongbu-navy);
+.chatbot-bubble:hover {
+  transform: scale(1.08);
   color: #fff;
 }

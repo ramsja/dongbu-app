@@ -49,21 +49,12 @@
   Dongbu Corporation, Sucursal El Salvador &mdash; Sistema interno de Vacaciones e Incapacidades
 </footer>
 
-<!-- Chatbot flotante -->
-<div id="chatbot-bubble" class="chatbot-bubble" title="Asistente Dongbu">
-  <i class="fa-solid fa-comment-dots"></i>
-</div>
-
-<div id="chatbot-panel" class="chatbot-panel d-none">
-  <div class="chatbot-header">
-    <span><i class="fa-solid fa-robot me-2"></i>Asistente Dongbu</span>
-    <button id="chatbot-close" class="btn-close btn-close-white"></button>
-  </div>
-  <div id="chatbot-body" class="chatbot-body"></div>
-</div>
+<!-- Chatbot flotante (WhatsApp) -->
+<a href="https://wa.me/50378562855" target="_blank" class="chatbot-bubble" title="Chatear por WhatsApp">
+  <i class="fa-brands fa-whatsapp"></i>
+</a>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="{{ url_for('static', filename='js/chatbot.js') }}"></script>
 {% block extra_scripts %}{% endblock %}
 </body>
 </html>
