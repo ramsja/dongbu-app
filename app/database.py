@@ -1,6 +1,8 @@
 import sqlite3
 import csv
 import os
+import shutil
+from datetime import datetime
 from werkzeug.security import generate_password_hash
 
 DB_PATH = os.environ.get("DB_PATH", os.path.join(os.path.dirname(__file__), "..", "data", "dongbu.db"))
@@ -29,7 +31,15 @@ def init_db():
             activo INTEGER DEFAULT 1,
             dui TEXT,
             correo TEXT,
-            telefono TEXT
+            telefono TEXT,
+            fecha_fin TEXT,
+            salario_letras TEXT,
+            isss TEXT,
+            afp TEXT,
+            isr TEXT,
+            prestamo_personal TEXT,
+            prestamo_bancario TEXT,
+            fsv TEXT
         )
     """)
 
@@ -58,21 +68,55 @@ def init_db():
         )
     """)
 
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS templates (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            doc_type TEXT NOT NULL,
+            filename TEXT NOT NULL,
+            stored_path TEXT NOT NULL,
+            is_active INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL
+        )
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS generated_documents (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            codigo_empleado TEXT NOT NULL,
+            doc_type TEXT NOT NULL,
+            docx_path TEXT NOT NULL,
+            pdf_path TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY(codigo_empleado) REFERENCES empleados(codigo)
+        )
+    """)
+
     # Dynamic migration to add 'estado' to 'registros' if it doesn't exist yet
     cur.execute("PRAGMA table_info(registros)")
     columns = [row[1] for row in cur.fetchall()]
     if "estado" not in columns:
         cur.execute("ALTER TABLE registros ADD COLUMN estado TEXT DEFAULT 'pendiente' CHECK(estado IN ('pendiente', 'aprobado', 'rechazado'))")
 
-    # Dynamic migration to add 'dui', 'correo', and 'telefono' to 'empleados' if they don't exist yet
+    # Dynamic migration to add columns to 'empleados' if they don't exist yet
     cur.execute("PRAGMA table_info(empleados)")
     emp_columns = [row[1] for row in cur.fetchall()]
-    if "dui" not in emp_columns:
-        cur.execute("ALTER TABLE empleados ADD COLUMN dui TEXT")
-    if "correo" not in emp_columns:
-        cur.execute("ALTER TABLE empleados ADD COLUMN correo TEXT")
-    if "telefono" not in emp_columns:
-        cur.execute("ALTER TABLE empleados ADD COLUMN telefono TEXT")
+    
+    migrations = [
+        ("dui", "TEXT"),
+        ("correo", "TEXT"),
+        ("telefono", "TEXT"),
+        ("fecha_fin", "TEXT"),
+        ("salario_letras", "TEXT"),
+        ("isss", "TEXT"),
+        ("afp", "TEXT"),
+        ("isr", "TEXT"),
+        ("prestamo_personal", "TEXT"),
+        ("prestamo_bancario", "TEXT"),
+        ("fsv", "TEXT")
+    ]
+    for col_name, col_type in migrations:
+        if col_name not in emp_columns:
+            cur.execute(f"ALTER TABLE empleados ADD COLUMN {col_name} {col_type}")
 
     conn.commit()
 
@@ -107,5 +151,29 @@ def init_db():
             print("[init_db] IMPORTANTE: cambia esta clave despues del primer ingreso.")
         except sqlite3.IntegrityError:
             pass
+
+    # Seed initial templates if they exist locally
+    TEMPLATES_DIR = os.path.join(os.path.dirname(DB_PATH), "..", "app", "uploads", "templates")
+    seeds = [
+        ("salario", r"C:\Users\HP\Documents\Formato de constancia\Constancia de salario Firmada.docx"),
+        ("laboral", r"C:\Users\HP\Documents\Formato de constancia\Constancia Laboral.docx"),
+    ]
+    for doc_type, src_path in seeds:
+        cur.execute("SELECT id FROM templates WHERE doc_type = ? AND is_active = 1", (doc_type,))
+        if not cur.fetchone() and os.path.exists(src_path):
+            folder = os.path.join(TEMPLATES_DIR, doc_type)
+            os.makedirs(folder, exist_ok=True)
+            filename = os.path.basename(src_path)
+            target = os.path.join(folder, filename)
+            try:
+                shutil.copy2(src_path, target)
+                cur.execute(
+                    "INSERT INTO templates (doc_type, filename, stored_path, is_active, created_at) VALUES (?, ?, ?, 1, ?)",
+                    (doc_type, filename, target, datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+                )
+                conn.commit()
+                print(f"[init_db] Plantilla {doc_type} precargada con éxito.")
+            except Exception as e:
+                print(f"[init_db] Error al precargar plantilla {doc_type}: {e}")
 
     conn.close()

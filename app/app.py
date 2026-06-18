@@ -2,8 +2,13 @@ import os
 import io
 import csv
 import uuid
+import re
+import shutil
+import subprocess
+import sys
 from datetime import datetime, date
 from functools import wraps
+from pathlib import Path
 
 from flask import (
     Flask, render_template, request, redirect, url_for,
@@ -12,10 +17,17 @@ from flask import (
 from werkzeug.utils import secure_filename
 from werkzeug.security import check_password_hash, generate_password_hash
 
+import pdfplumber
+import openpyxl
+import xlrd
+from docx import Document
+
 from database import get_db, init_db
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
+TEMPLATES_DIR = os.path.join(UPLOAD_DIR, "templates")
+GENERATED_DIR = os.path.join(UPLOAD_DIR, "generated")
 ALLOWED_EXT = {"png", "jpg", "jpeg", "pdf"}
 MAX_CONTENT_LENGTH = 8 * 1024 * 1024  # 8 MB
 
@@ -24,6 +36,8 @@ app.secret_key = os.environ.get("SECRET_KEY", "cambia-esta-clave-en-produccion")
 app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
 
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+os.makedirs(TEMPLATES_DIR, exist_ok=True)
+os.makedirs(GENERATED_DIR, exist_ok=True)
 
 
 # ---------------------------------------------------------------------------
@@ -575,6 +589,651 @@ def admin_cambiar_clave():
             flash("Clave actualizada correctamente", "ok")
         db.close()
     return render_template("admin_cambiar_clave.html")
+
+
+# ===========================================================================
+# MÓDULO DE CONSTANCIAS (Helpers y Utilidades)
+# ===========================================================================
+
+ONES = [
+    "", "uno", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve", "diez",
+    "once", "doce", "trece", "catorce", "quince", "dieciseis", "diecisiete", "dieciocho", "diecinueve", "veinte",
+    "veintiuno", "veintidós", "veintitres", "veinticuatro", "veinticinco", "veintiseis", "veintisiete", "veintiocho", "veintinueve"
+]
+TENS = ["", "", "veinte", "treinta", "cuarenta", "cincuenta", "sesenta", "setenta", "ochenta", "noventa"]
+HUNDREDS = [
+    "", "ciento", "doscientos", "trescientos", "cuatrocientos", "quinientos", "seiscientos", "setecientos", "ochocientos", "novecientos"
+]
+
+def number_to_words_es(n: int) -> str:
+    if n == 0:
+        return "cero"
+    if n == 100:
+        return "cien"
+    if n < 30:
+        return ONES[n]
+    if n < 100:
+        ten, one = divmod(n, 10)
+        return TENS[ten] if one == 0 else f"{TENS[ten]} y {ONES[one]}"
+    if n < 1000:
+        hundred, rest = divmod(n, 100)
+        return HUNDREDS[hundred] if rest == 0 else f"{HUNDREDS[hundred]} {number_to_words_es(rest)}"
+    if n < 1_000_000:
+        thousands, rest = divmod(n, 1000)
+        prefix = "mil" if thousands == 1 else f"{number_to_words_es(thousands)} mil"
+        return prefix if rest == 0 else f"{prefix} {number_to_words_es(rest)}"
+    return str(n)
+
+def accent_spanish_number_words(text: str) -> str:
+    replacements = {
+        "dieciseis": "dieciséis",
+        "veintidos": "veintidós",
+        "veintitres": "veintitrés",
+        "veintiseis": "veintiséis",
+    }
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+    return text
+
+def salary_words(value: str | None) -> str:
+    amount = currency(value)
+    whole = int(amount)
+    cents = int(round((amount - whole) * 100))
+    words = number_to_words_es(whole)
+    words = accent_spanish_number_words(words)
+    return f"{words.upper()} {cents:02d}/100"
+
+MONTHS_ES = [
+    "", "enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"
+]
+
+def date_words_es(value: datetime | None = None) -> str:
+    current = value or datetime.now()
+    day_words = accent_spanish_number_words(number_to_words_es(current.day))
+    year_words = accent_spanish_number_words(number_to_words_es(current.year))
+    return f"{day_words} de {MONTHS_ES[current.month]} de {year_words}"
+
+def date_long_words_es(value: datetime | None = None) -> str:
+    current = value or datetime.now()
+    day_words = accent_spanish_number_words(number_to_words_es(current.day))
+    year_words = accent_spanish_number_words(number_to_words_es(current.year))
+    return f"{day_words} días del mes de {MONTHS_ES[current.month]} del {year_words}"
+
+def currency(value: str | None) -> float:
+    if not value:
+        return 0.0
+    cleaned = re.sub(r"[^0-9.]", "", value.replace(",", ""))
+    try:
+        return float(cleaned)
+    except ValueError:
+        return 0.0
+
+def calculate_isr(taxable_income: float) -> float:
+    if taxable_income <= 550.00:
+        return 0.0
+    if taxable_income <= 895.24:
+        return 17.67 + ((taxable_income - 550.00) * 0.10)
+    if taxable_income <= 2038.10:
+        return 60.00 + ((taxable_income - 895.24) * 0.20)
+    return 288.57 + ((taxable_income - 2038.10) * 0.30)
+
+def calculate_payroll_deductions(salary_value: str | None) -> dict[str, str]:
+    gross = currency(salary_value)
+    isss = min(gross, 1000.00) * 0.03
+    afp = gross * 0.0725
+    taxable = max(gross - isss - afp, 0)
+    isr = calculate_isr(taxable)
+    total = isss + afp + isr
+    return {
+        "isss": f"${isss:.2f}",
+        "afp": f"${afp:.2f}",
+        "isr": f"${isr:.2f}",
+        "total_deductions": f"${total:.2f}",
+        "net": f"${max(gross - total, 0):.2f}",
+    }
+
+def extract_pdf_text(path: Path) -> str:
+    text_parts = []
+    with pdfplumber.open(path) as pdf:
+        for page in pdf.pages:
+            text_parts.append(page.extract_text() or "")
+    return "\n".join(text_parts)
+
+def find_first(patterns: list[str], text: str) -> str:
+    for pattern in patterns:
+        match = re.search(pattern, text, flags=re.IGNORECASE | re.MULTILINE)
+        if match:
+            return " ".join(match.group(1).split())
+    return ""
+
+def guess_employee_from_text(text: str) -> dict[str, str]:
+    normalized = re.sub(r"[ \t]+", " ", text)
+    dui = find_first([r"\b(\d{8}-\d)\b", r"DUI[:\s]+(\d{8}-\d)"], normalized)
+    code = find_first([r"(?:codigo|cod\.?|empleado)[:\s#-]+([A-Z0-9-]{2,})"], normalized)
+    salary = find_first([r"(?:salario|sueldo)[^\d$]{0,25}(\$?\s*\d+[,\d]*(?:\.\d{2})?)"], normalized)
+    hire_date = find_first([r"(?:ingreso|fecha de ingreso)[:\s]+([0-9]{1,2}[/-][0-9]{1,2}[/-][0-9]{2,4})"], normalized)
+    job = find_first([r"(?:puesto|cargo)[:\s]+([A-ZÁÉÍÓÚÑ0-9 /.-]{3,60})"], normalized)
+    name = find_first(
+        [
+            r"(?:nombre|empleado)[:\s]+([A-ZÁÉÍÓÚÑ ]{5,80})",
+            r"([A-ZÁÉÍÓÚÑ]{2,}(?: [A-ZÁÉÍÓÚÑ]{2,}){2,5})\s+(?:DUI|Documento|Cargo|Puesto)",
+        ],
+        normalized,
+    )
+    return {
+        "dui": dui,
+        "employee_code": code,
+        "full_name": name,
+        "job_title": job,
+        "hire_date": hire_date,
+        "end_date": "",
+        "salary": salary,
+        "salary_words": salary_words(salary) if salary else "",
+        "isss": "",
+        "afp": "",
+        "isr": "",
+        "personal_loan": "",
+        "bank_loan": "",
+        "fsv": "",
+    }
+
+def normalize_header(value: object) -> str:
+    text = str(value or "").strip().lower()
+    replacements = {
+        "á": "a", "é": "e", "í": "i", "ó": "o", "ú": "u", "ñ": "n", ".": "", "#": ""
+    }
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+    return re.sub(r"[^a-z0-9]+", "_", text).strip("_")
+
+HEADER_ALIASES = {
+    "dui": {"dui", "documento_unico_de_identidad", "documento", "identidad", "numero_doc_identidad", "num_doc_identidad", "no_doc_identidad"},
+    "employee_code": {"codigo", "codigo_empleado", "cod_empleado", "empleado", "numero_empleado", "no_empleado"},
+    "full_name": {"nombre", "nombre_completo", "empleado_nombre", "nombre_empleado", "trabajador"},
+    "first_name": {"nombres", "primer_nombre"},
+    "last_name": {"apellidos", "apellido", "primer_apellido"},
+    "job_title": {"puesto", "cargo", "plaza", "posicion"},
+    "hire_date": {"fecha_ingreso", "ingreso", "fecha_de_ingreso", "fecha_alta", "fecha_contratacion"},
+    "end_date": {"fecha_fin", "fecha_retiro", "fecha_baja", "hasta"},
+    "salary": {"salario", "sueldo", "salario_mensual", "sueldo_mensual", "salario_ordinario"},
+    "salary_words": {"salario_letras", "sueldo_letras"},
+    "isss": {"isss"},
+    "afp": {"afp"},
+    "isr": {"isr", "renta"},
+    "personal_loan": {"prestamo_personal", "prestamos_personales"},
+    "bank_loan": {"prestamo_bancario", "prestamos_bancarios"},
+    "fsv": {"fsv"},
+}
+
+def cell_value(value: object) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, datetime):
+        return value.strftime("%d/%m/%Y")
+    if isinstance(value, float):
+        if value.is_integer():
+            return str(int(value))
+        return f"{value:.2f}"
+    return str(value).strip()
+
+def excel_currency(value: str) -> str:
+    if not value:
+        return ""
+    amount = currency(value)
+    return f"${amount:.2f}" if amount else value
+
+def read_excel_rows(path: Path) -> list[tuple[object, ...]]:
+    suffix = path.suffix.lower()
+    if suffix == ".xls":
+        book = xlrd.open_workbook(str(path))
+        sheet = book.sheet_by_index(0)
+        rows = []
+        for row_idx in range(sheet.nrows):
+            values = []
+            for col_idx, cell in enumerate(sheet.row(row_idx)):
+                val = cell.value
+                if cell.ctype == xlrd.XL_CELL_DATE:
+                    val = xlrd.xldate_as_datetime(val, book.datemode)
+                values.append(val)
+            rows.append(tuple(values))
+        book.release_resources()
+        return rows
+
+    wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
+    sheet = wb.active
+    rows = list(sheet.iter_rows(values_only=True))
+    wb.close()
+    return rows
+
+def extract_employees_from_excel(path: Path) -> tuple[list[dict[str, str]], list[str]]:
+    rows = read_excel_rows(path)
+    if not rows:
+        return [], []
+
+    header_index = 0
+    best_score = -1
+    for idx, row in enumerate(rows[:10]):
+        headers = [normalize_header(c) for c in row]
+        score = sum(1 for h in headers for aliases in HEADER_ALIASES.values() if h in aliases)
+        if score > best_score:
+            best_score = score
+            header_index = idx
+
+    headers = [normalize_header(c) for c in rows[header_index]]
+    column_map = {}
+    for field, aliases in HEADER_ALIASES.items():
+        for i, header in enumerate(headers):
+            if header in aliases:
+                column_map[field] = i
+                break
+
+    employees = []
+    for row in rows[header_index + 1 :]:
+        data = {field: cell_value(row[i]) if i < len(row) else "" for field, i in column_map.items()}
+        if not data.get("full_name"):
+            data["full_name"] = " ".join(part for part in [data.get("first_name", ""), data.get("last_name", "")] if part).strip()
+        if not data.get("full_name") and not data.get("dui") and not data.get("employee_code"):
+            continue
+        if data.get("salary"):
+            data["salary"] = excel_currency(data["salary"])
+        if not data.get("salary_words") and data.get("salary"):
+            data["salary_words"] = salary_words(data["salary"])
+        employees.append(
+            {
+                "dui": data.get("dui", ""),
+                "employee_code": data.get("employee_code", ""),
+                "full_name": data.get("full_name", ""),
+                "job_title": data.get("job_title", ""),
+                "hire_date": data.get("hire_date", ""),
+                "end_date": data.get("end_date", ""),
+                "salary": data.get("salary", ""),
+                "salary_words": data.get("salary_words", ""),
+                "isss": data.get("isss", ""),
+                "afp": data.get("afp", ""),
+                "isr": data.get("isr", ""),
+                "personal_loan": data.get("personal_loan", ""),
+                "bank_loan": data.get("bank_loan", ""),
+                "fsv": data.get("fsv", ""),
+            }
+        )
+    return employees, sorted(column_map.keys())
+
+def save_constancia_employee(data: dict[str, str]) -> str:
+    nombre = data.get("full_name", "").strip()
+    if not nombre:
+        raise ValueError("El nombre del empleado es obligatorio.")
+    
+    dui = data.get("dui", "").strip()
+    codigo = data.get("employee_code", "").strip()
+    salario_raw = data.get("salary", "").strip()
+    sal_val = currency(salario_raw)
+    
+    sal_letras = data.get("salary_words", "").strip()
+    if not sal_letras and sal_val > 0:
+        sal_letras = salary_words(str(sal_val))
+        
+    auto_deductions = calculate_payroll_deductions(str(sal_val))
+    isss = data.get("isss", "").strip() or auto_deductions["isss"]
+    afp = data.get("afp", "").strip() or auto_deductions["afp"]
+    isr = data.get("isr", "").strip() or auto_deductions["isr"]
+    
+    personal = data.get("personal_loan", "").strip() or "$0.00"
+    bank = data.get("bank_loan", "").strip() or "$0.00"
+    fsv = data.get("fsv", "").strip() or "$0.00"
+    
+    cargo = data.get("job_title", "").strip()
+    ingreso = data.get("hire_date", "").strip()
+    fin = data.get("end_date", "").strip()
+    
+    db = get_db()
+    existing = None
+    if dui:
+        existing = db.execute("SELECT codigo FROM empleados WHERE dui = ?", (dui,)).fetchone()
+    if not existing and codigo:
+        existing = db.execute("SELECT codigo FROM empleados WHERE codigo = ?", (codigo,)).fetchone()
+        
+    if existing:
+        codigo = existing["codigo"]
+        db.execute(
+            """
+            UPDATE empleados
+            SET nombre=?, cargo=?, fecha_ingreso=?, salario_mensual=?,
+                dui=?, fecha_fin=?, salario_letras=?, isss=?, afp=?, isr=?,
+                prestamo_personal=?, prestamo_bancario=?, fsv=?
+            WHERE codigo=?
+            """,
+            (nombre, cargo, ingreso, sal_val, dui, fin, sal_letras, isss, afp, isr, personal, bank, fsv, codigo)
+        )
+    else:
+        if not codigo:
+            row = db.execute("SELECT codigo FROM empleados ORDER BY CAST(codigo AS INTEGER) DESC LIMIT 1").fetchone()
+            if row:
+                try:
+                    next_val = int(row["codigo"]) + 1
+                    codigo = str(next_val).zfill(4)
+                except ValueError:
+                    codigo = "2000"
+            else:
+                codigo = "2000"
+        
+        db.execute(
+            """
+            INSERT INTO empleados (
+                codigo, nombre, cargo, fecha_ingreso, salario_mensual, activo, dui,
+                fecha_fin, salario_letras, isss, afp, isr, prestamo_personal, prestamo_bancario, fsv
+            ) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (codigo, nombre, cargo, ingreso, sal_val, dui, fin, sal_letras, isss, afp, isr, personal, bank, fsv)
+        )
+    db.commit()
+    db.close()
+    return codigo
+
+def get_active_template(doc_type: str) -> dict | None:
+    db = get_db()
+    row = db.execute(
+        "SELECT * FROM templates WHERE doc_type = ? AND is_active = 1 ORDER BY id DESC LIMIT 1",
+        (doc_type,),
+    ).fetchone()
+    db.close()
+    return dict(row) if row else None
+
+def replace_in_paragraph(paragraph, replacements: dict[str, str]) -> None:
+    full_text = "".join(run.text for run in paragraph.runs) or paragraph.text
+    new_text = full_text
+    for old, new in replacements.items():
+        new_text = new_text.replace(old, new)
+    if new_text != full_text:
+        for run in paragraph.runs:
+            run.text = ""
+        if paragraph.runs:
+            paragraph.runs[0].text = new_text
+        else:
+            paragraph.add_run(new_text)
+
+def render_docx_from_template(template_path: Path, employee: dict, doc_type: str) -> Path:
+    doc = Document(template_path)
+    generated_id = uuid.uuid4().hex[:10]
+    out_path = Path(GENERATED_DIR) / f"{doc_type}-{employee['codigo']}-{generated_id}.docx"
+    
+    sal_val = employee.get("salario_mensual") or 0.0
+    sal = f"${sal_val:.2f}"
+    
+    auto_deductions = calculate_payroll_deductions(str(sal_val))
+    isss = employee.get("isss") or auto_deductions["isss"]
+    afp = employee.get("afp") or auto_deductions["afp"]
+    isr = employee.get("isr") or auto_deductions["isr"]
+    personal = employee.get("prestamo_personal") or "$0.00"
+    bank = employee.get("prestamo_bancario") or "$0.00"
+    fsv = employee.get("fsv") or "$0.00"
+    
+    total_deductions = sum(currency(x) for x in [isss, afp, isr, personal, bank, fsv])
+    net = max(sal_val - total_deductions, 0)
+    fecha_emision = datetime.now()
+    
+    replacements = {
+        "{{nombre_empleado}}": employee.get("nombre") or "",
+        "{{dui}}": employee.get("dui") or "",
+        "{{codigo_empleado}}": employee.get("codigo") or "",
+        "{{puesto}}": employee.get("cargo") or "",
+        "{{fecha_ingreso}}": employee.get("fecha_ingreso") or "",
+        "{{fecha_fin}}": employee.get("fecha_fin") or "presente",
+        "{{salario_numero}}": sal,
+        "{{salario_letras}}": employee.get("salario_letras") or salary_words(str(sal_val)),
+        "{{isss}}": isss,
+        "{{afp}}": afp,
+        "{{isr}}": isr,
+        "{{prestamo_personal}}": personal,
+        "{{prestamo_bancario}}": bank,
+        "{{fsv}}": fsv,
+        "{{total_deducciones}}": f"${total_deducciones:.2f}",
+        "{{total_recibir}}": f"${net:.2f}",
+        "{{fecha_emision}}": fecha_emision.strftime("%d/%m/%Y"),
+        "{{fecha_emision_letras}}": date_words_es(fecha_emision),
+        
+        # Mappings from original templates
+        "DIEGO ALEXANDER HERNANDEZ MEBREÑO": employee.get("nombre") or "",
+        "06373254-3": employee.get("dui") or "",
+        "11 de Julio de 2024": employee.get("fecha_ingreso") or "",
+        "CAPORAL": employee.get("cargo") or "",
+        "CUATROCIENTOS CINCUENTA 00/100": employee.get("salario_letras") or salary_words(str(sal_val)),
+        "$ 450.00": sal,
+        "$450.00": sal,
+        "$13.50": isss,
+        "$32.62": afp,
+        "$46.12": f"${total_deducciones:.2f}",
+        "$403.88": f"${net:.2f}",
+        "dos de junio de dos mil veintiséis": date_words_es(fecha_emision),
+        "JUAN ALBERTO GONZÁLEZ SÁNCHEZ": employee.get("nombre") or "",
+        "BAJA CERO": employee.get("cargo") or "",
+        "14 de marzo del 2024": employee.get("fecha_ingreso") or "",
+        "15 de mayo del 2026": employee.get("fecha_fin") or "presente",
+        "veintidós días del mes de mayo del dos mil veintiséis": date_long_words_es(fecha_emision),
+    }
+    
+    for paragraph in doc.paragraphs:
+        replace_in_paragraph(paragraph, replacements)
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                for paragraph in cell.paragraphs:
+                    replace_in_paragraph(paragraph, replacements)
+    doc.save(out_path)
+    return out_path
+
+def convert_to_pdf(docx_path: Path) -> Path | None:
+    soffice = shutil.which("soffice") or shutil.which("libreoffice")
+    candidate = Path(os.environ.get("PROGRAMFILES", "")) / "LibreOffice" / "program" / "soffice.exe"
+    if not soffice and candidate.exists():
+        soffice = str(candidate)
+    if not soffice:
+        return None
+    subprocess.run(
+        [soffice, "--headless", "--convert-to", "pdf", "--outdir", str(docx_path.parent), str(docx_path)],
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    pdf_path = docx_path.with_suffix(".pdf")
+    return pdf_path if pdf_path.exists() else None
+
+
+# ===========================================================================
+# ENDPOINTS DEL MÓDULO DE CONSTANCIAS
+# ===========================================================================
+
+@app.route("/admin/constancias")
+@login_required
+def admin_constancias():
+    db = get_db()
+    empleados = db.execute("SELECT codigo, nombre, cargo, dui FROM empleados WHERE activo=1 ORDER BY nombre").fetchall()
+    templates = db.execute("SELECT * FROM templates ORDER BY created_at DESC").fetchall()
+    docs = db.execute(
+        """
+        SELECT g.*, e.nombre, e.cargo FROM generated_documents g
+        JOIN empleados e ON e.codigo = g.codigo_empleado
+        ORDER BY g.created_at DESC
+        """
+    ).fetchall()
+    db.close()
+    return render_template(
+        "admin_constancias.html",
+        empleados=empleados,
+        templates=templates,
+        docs=docs
+    )
+
+@app.route("/admin/constancias/upload-excel", methods=["POST"])
+@login_required
+def admin_upload_excel():
+    file = request.files.get("excel")
+    if not file or file.filename == "":
+        flash("Debes seleccionar un archivo Excel.", "error")
+        return redirect(url_for("admin_constancias"))
+    
+    filename = secure_filename(file.filename)
+    stored = os.path.join(UPLOAD_DIR, f"excel_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{filename}")
+    file.save(stored)
+    
+    try:
+        employees, detected = extract_employees_from_excel(Path(stored))
+        saved = 0
+        skipped = 0
+        for emp in employees:
+            try:
+                save_constancia_employee(emp)
+                saved += 1
+            except Exception as e:
+                skipped += 1
+        
+        flash(f"Excel importado. Empleados actualizados/guardados: {saved}, omitidos: {skipped}.", "ok")
+    except Exception as e:
+        flash(f"Error al procesar el Excel: {e}", "error")
+        
+    return redirect(url_for("admin_constancias"))
+
+@app.route("/admin/constancias/upload-report", methods=["POST"])
+@login_required
+def admin_upload_pdf():
+    file = request.files.get("report")
+    if not file or file.filename == "":
+        flash("Debes seleccionar un archivo PDF.", "error")
+        return redirect(url_for("admin_constancias"))
+    
+    filename = secure_filename(file.filename)
+    stored = os.path.join(UPLOAD_DIR, f"pdf_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{filename}")
+    file.save(stored)
+    
+    try:
+        text = extract_pdf_text(Path(stored))
+        guessed = guess_employee_from_text(text)
+        return render_template("admin_constancias_pdf_review.html", data=guessed, text_preview=text[:3000])
+    except Exception as e:
+        flash(f"Error al leer el PDF: {e}", "error")
+        return redirect(url_for("admin_constancias"))
+
+@app.route("/admin/constancias/save-employee", methods=["POST"])
+@login_required
+def admin_save_constancia_employee():
+    data = {
+        "full_name": request.form.get("full_name", ""),
+        "dui": request.form.get("dui", ""),
+        "employee_code": request.form.get("employee_code", ""),
+        "job_title": request.form.get("job_title", ""),
+        "hire_date": request.form.get("hire_date", ""),
+        "end_date": request.form.get("end_date", ""),
+        "salary": request.form.get("salary", ""),
+        "salary_words": request.form.get("salary_words", ""),
+        "isss": request.form.get("isss", ""),
+        "afp": request.form.get("afp", ""),
+        "isr": request.form.get("isr", ""),
+        "personal_loan": request.form.get("personal_loan", ""),
+        "bank_loan": request.form.get("bank_loan", ""),
+        "fsv": request.form.get("fsv", "")
+    }
+    try:
+        codigo = save_constancia_employee(data)
+        flash(f"Empleado guardado correctamente (Código: {codigo}).", "ok")
+    except Exception as e:
+        flash(f"Error al guardar el empleado: {e}", "error")
+    return redirect(url_for("admin_constancias"))
+
+@app.route("/admin/constancias/upload-template", methods=["POST"])
+@login_required
+def admin_upload_template():
+    doc_type = request.form.get("doc_type", "salario")
+    file = request.files.get("template")
+    if not file or file.filename == "":
+        flash("Debes seleccionar un archivo .docx", "error")
+        return redirect(url_for("admin_constancias"))
+    
+    filename = secure_filename(file.filename)
+    folder = os.path.join(TEMPLATES_DIR, doc_type)
+    os.makedirs(folder, exist_ok=True)
+    stored = os.path.join(folder, f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{filename}")
+    file.save(stored)
+    
+    db = get_db()
+    db.execute("UPDATE templates SET is_active = 0 WHERE doc_type = ?", (doc_type,))
+    db.execute(
+        "INSERT INTO templates (doc_type, filename, stored_path, is_active, created_at) VALUES (?, ?, ?, 1, ?)",
+        (doc_type, filename, stored, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    )
+    db.commit()
+    db.close()
+    
+    flash(f"Nueva plantilla de {doc_type} cargada y activada.", "ok")
+    return redirect(url_for("admin_constancias"))
+
+@app.route("/admin/constancias/generate", methods=["POST"])
+@login_required
+def admin_generate_constancia():
+    codigo = request.form.get("codigo")
+    doc_type = request.form.get("doc_type", "salario")
+    
+    db = get_db()
+    employee = db.execute("SELECT * FROM empleados WHERE codigo = ?", (codigo,)).fetchone()
+    db.close()
+    
+    if not employee:
+        flash("No se encontró el empleado seleccionado.", "error")
+        return redirect(url_for("admin_constancias"))
+        
+    template = get_active_template(doc_type)
+    if not template:
+        flash(f"No hay una plantilla activa para constancias de {doc_type}. Súbela primero.", "error")
+        return redirect(url_for("admin_constancias"))
+        
+    try:
+        docx_path = render_docx_from_template(Path(template["stored_path"]), dict(employee), doc_type)
+        pdf_path = convert_to_pdf(docx_path)
+        
+        db = get_db()
+        db.execute(
+            "INSERT INTO generated_documents (codigo_empleado, doc_type, docx_path, pdf_path, created_at) VALUES (?, ?, ?, ?, ?)",
+            (codigo, doc_type, str(docx_path), str(pdf_path) if pdf_path else None, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        )
+        db.commit()
+        db.close()
+        
+        flash(f"Constancia de {doc_type} generada correctamente.", "ok")
+    except Exception as e:
+        flash(f"Error al generar la constancia: {e}", "error")
+        
+    return redirect(url_for("admin_constancias"))
+
+@app.route("/admin/constancias/delete/<int:id>", methods=["POST"])
+@login_required
+def admin_delete_constancia(id):
+    db = get_db()
+    row = db.execute("SELECT * FROM generated_documents WHERE id = ?", (id,)).fetchone()
+    if not row:
+        db.close()
+        flash("La constancia no existe.", "error")
+        return redirect(url_for("admin_constancias"))
+        
+    db.execute("DELETE FROM generated_documents WHERE id = ?", (id,))
+    db.commit()
+    db.close()
+    
+    for path_val in (row["docx_path"], row["pdf_path"]):
+        if path_val:
+            try:
+                os.remove(path_val)
+            except Exception:
+                pass
+                
+    flash("Constancia eliminada correctamente.", "ok")
+    return redirect(url_for("admin_constancias"))
+
+@app.route("/admin/constancias/download/<path:filename>")
+@login_required
+def admin_download_constancia(filename):
+    safe_name = os.path.basename(filename)
+    path = os.path.join(GENERATED_DIR, safe_name)
+    if not os.path.exists(path):
+        abort(404)
+    return send_from_directory(GENERATED_DIR, safe_name, as_attachment=True, download_name=safe_name)
 
 
 @app.errorhandler(404)

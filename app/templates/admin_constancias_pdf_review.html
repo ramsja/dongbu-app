@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+{% block title %}Revisar Ficha Extraída de PDF - Dongbu{% endblock %}
+{% block content %}
+
+<div class="row g-4 mb-4">
+  <div class="col-12">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+      <h2 class="dongbu-title m-0"><i class="fa-solid fa-file-pdf me-2 text-danger"></i>Revisión de Ficha Laboral Escaneada</h2>
+      <a href="{{ url_for('admin_constancias') }}" class="btn btn-outline-secondary btn-sm"><i class="fa-solid fa-arrow-left me-1"></i>Regresar</a>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <!-- Columna Formulario -->
+  <div class="col-lg-7">
+    <div class="card shadow-sm h-100">
+      <div class="card-header dongbu-card-header">
+        <i class="fa-solid fa-pen-to-square me-2"></i>Ficha Laboral Editable (Campos Detectados)
+      </div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('admin_save_constancia_employee') }}">
+          <h6 class="fw-bold border-bottom pb-2 mb-3 text-secondary"><i class="fa-solid fa-id-card me-2"></i>Datos de Identidad y Puesto</h6>
+          
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label for="full_name" class="form-label fw-semibold">Nombre Completo</label>
+              <input type="text" name="full_name" id="full_name" class="form-control" value="{{ data.full_name }}" required>
+            </div>
+            <div class="col-md-6">
+              <label for="dui" class="form-label fw-semibold">DUI (con guion)</label>
+              <input type="text" name="dui" id="dui" class="form-control" value="{{ data.dui }}" placeholder="00000000-0" required>
+            </div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label for="employee_code" class="form-label fw-semibold">Código Empleado</label>
+              <input type="text" name="employee_code" id="employee_code" class="form-control" value="{{ data.employee_code }}" placeholder="Auto-generar si se deja vacío">
+            </div>
+            <div class="col-md-6">
+              <label for="job_title" class="form-label fw-semibold">Cargo o Puesto</label>
+              <input type="text" name="job_title" id="job_title" class="form-control" value="{{ data.job_title }}" required>
+            </div>
+          </div>
+
+          <div class="row g-3 mb-4">
+            <div class="col-md-6">
+              <label for="hire_date" class="form-label fw-semibold">Fecha de Ingreso</label>
+              <input type="text" name="hire_date" id="hire_date" class="form-control" value="{{ data.hire_date }}" placeholder="DD/MM/AAAA o AAAA-MM-DD" required>
+            </div>
+            <div class="col-md-6">
+              <label for="end_date" class="form-label fw-semibold">Fecha de Finalización (Opcional)</label>
+              <input type="text" name="end_date" id="end_date" class="form-control" value="{{ data.end_date }}" placeholder="presente / DD/MM/AAAA">
+            </div>
+          </div>
+
+          <h6 class="fw-bold border-bottom pb-2 mb-3 text-secondary"><i class="fa-solid fa-money-bill-wave me-2"></i>Salario y Deducciones</h6>
+          
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label for="salary" class="form-label fw-semibold">Salario Mensual Nominal</label>
+              <div class="input-group">
+                <span class="input-group-text">$</span>
+                <input type="text" name="salary" id="salary" class="form-control" value="{{ data.salary }}" required>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label for="salary_words" class="form-label fw-semibold">Salario en Letras</label>
+              <input type="text" name="salary_words" id="salary_words" class="form-control" value="{{ data.salary_words }}" placeholder="CUATROCIENTOS CINCUENTA 00/100">
+            </div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-4">
+              <label for="isss" class="form-label fw-semibold">Deducción ISSS (3%)</label>
+              <div class="input-group input-group-sm">
+                <span class="input-group-text">$</span>
+                <input type="text" name="isss" id="isss" class="form-control" value="{{ data.isss }}">
+              </div>
+            </div>
+            <div class="col-md-4">
+              <label for="afp" class="form-label fw-semibold">Deducción AFP (7.25%)</label>
+              <div class="input-group input-group-sm">
+                <span class="input-group-text">$</span>
+                <input type="text" name="afp" id="afp" class="form-control" value="{{ data.afp }}">
+              </div>
+            </div>
+            <div class="col-md-4">
+              <label for="isr" class="form-label fw-semibold">Retención Renta (ISR)</label>
+              <div class="input-group input-group-sm">
+                <span class="input-group-text">$</span>
+                <input type="text" name="isr" id="isr" class="form-control" value="{{ data.isr }}">
+              </div>
+            </div>
+          </div>
+
+          <div class="row g-3 mb-4">
+            <div class="col-md-4">
+              <label for="personal_loan" class="form-label fw-semibold">Préstamo Personal</label>
+              <div class="input-group input-group-sm">
+                <span class="input-group-text">$</span>
+                <input type="text" name="personal_loan" id="personal_loan" class="form-control" value="{{ data.personal_loan }}" placeholder="0.00">
+              </div>
+            </div>
+            <div class="col-md-4">
+              <label for="bank_loan" class="form-label fw-semibold">Préstamo Bancario</label>
+              <div class="input-group input-group-sm">
+                <span class="input-group-text">$</span>
+                <input type="text" name="bank_loan" id="bank_loan" class="form-control" value="{{ data.bank_loan }}" placeholder="0.00">
+              </div>
+            </div>
+            <div class="col-md-4">
+              <label for="fsv" class="form-label fw-semibold">Fondo Social (FSV)</label>
+              <div class="input-group input-group-sm">
+                <span class="input-group-text">$</span>
+                <input type="text" name="fsv" id="fsv" class="form-control" value="{{ data.fsv }}" placeholder="0.00">
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-light rounded p-3 mb-4 d-flex justify-content-between align-items-center">
+            <div>
+              <span class="text-muted small d-block">Estimación de salario neto a recibir:</span>
+              <strong class="fs-4 text-success" id="net-salary-preview">$0.00</strong>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="recalc-btn"><i class="fa-solid fa-arrows-rotate me-1"></i>Calcular</button>
+          </div>
+
+          <button type="submit" class="btn btn-success w-100 py-2 fw-semibold"><i class="fa-solid fa-floppy-disk me-2"></i>Guardar Ficha en Base de Datos</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Columna Texto Escaneado -->
+  <div class="col-lg-5">
+    <div class="card shadow-sm h-100">
+      <div class="card-header dongbu-card-header bg-danger text-white">
+        <i class="fa-solid fa-code me-2"></i>Vista de Texto del PDF (Referencia)
+      </div>
+      <div class="card-body bg-dark text-light p-3" style="font-family: monospace; font-size: 0.85rem; overflow-y: auto; max-height: 650px;">
+        <pre style="white-space: pre-wrap; margin: 0; word-break: break-all; color: #a5d6a7;">{{ text_preview }}</pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const salaryInput = document.getElementById('salary');
+  const isssInput = document.getElementById('isss');
+  const afpInput = document.getElementById('afp');
+  const isrInput = document.getElementById('isr');
+  const personalInput = document.getElementById('personal_loan');
+  const bankInput = document.getElementById('bank_loan');
+  const fsvInput = document.getElementById('fsv');
+  const netPreview = document.getElementById('net-salary-preview');
+  const recalcBtn = document.getElementById('recalc-btn');
+
+  function cleanVal(str) {
+    if (!str) return 0;
+    return parseFloat(str.replace(/[^0-9.]/g, '')) || 0;
+  }
+
+  function calculateISR(taxable) {
+    if (taxable <= 550.00) return 0;
+    if (taxable <= 895.24) return 17.67 + ((taxable - 550.00) * 0.10);
+    if (taxable <= 2038.10) return 60.00 + ((taxable - 895.24) * 0.20);
+    return 288.57 + ((taxable - 2038.10) * 0.30);
+  }
+
+  function autoRecalculate() {
+    const gross = cleanVal(salaryInput.value);
+    if (gross <= 0) {
+      netPreview.textContent = '$0.00';
+      return;
+    }
+
+    // Auto-calculate statutory deductions if empty or triggered
+    let isss = cleanVal(isssInput.value);
+    if (!isssInput.value) {
+      isss = Math.min(gross, 1000.00) * 0.03;
+      isssInput.value = isss.toFixed(2);
+    }
+
+    let afp = cleanVal(afpInput.value);
+    if (!afpInput.value) {
+      afp = gross * 0.0725;
+      afpInput.value = afp.toFixed(2);
+    }
+
+    let isr = cleanVal(isrInput.value);
+    if (!isrInput.value) {
+      const taxable = Math.max(gross - isss - afp, 0);
+      isr = calculateISR(taxable);
+      isrInput.value = isr.toFixed(2);
+    }
+
+    const personal = cleanVal(personalInput.value);
+    const bank = cleanVal(bankInput.value);
+    const fsv = cleanVal(fsvInput.value);
+
+    const totalDeductions = isss + afp + isr + personal + bank + fsv;
+    const net = Math.max(gross - totalDeductions, 0);
+
+    netPreview.textContent = '$' + net.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  // Bind keyup and change
+  salaryInput.addEventListener('change', function() {
+    // Clear auto-filled deductions to trigger fresh calculation on salary change
+    isssInput.value = '';
+    afpInput.value = '';
+    isrInput.value = '';
+    autoRecalculate();
+  });
+
+  [isssInput, afpInput, isrInput, personalInput, bankInput, fsvInput].forEach(inp => {
+    inp.addEventListener('input', autoRecalculate);
+  });
+
+  recalcBtn.addEventListener('click', function() {
+    // Force recalc of everything
+    isssInput.value = '';
+    afpInput.value = '';
+    isrInput.value = '';
+    autoRecalculate();
+  });
+
+  // Init
+  autoRecalculate();
+});
+</script>
+{% endblock %}
