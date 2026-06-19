@@ -130,76 +130,132 @@ def init_db():
     conn.commit()
 
     # Seed/update employees from seed_mvp_employees.json
+    # Supports two formats:
+    #   - Old API format: employee_code, full_name, job_title, hire_date, salary, ...
+    #   - New SQLite export format: codigo, nombre, cargo, fecha_ingreso, salario_mensual, dui, ...
     mvp_json_path = os.path.join(os.path.dirname(__file__), "seed_mvp_employees.json")
     if os.path.exists(mvp_json_path):
         try:
             import json
             with open(mvp_json_path, "r", encoding="utf-8") as f:
                 employees = json.load(f)
-            
+
             imported_count = 0
             for emp in employees:
                 try:
-                    raw_code = emp.get("employee_code") or emp.get("id")
+                    # ── Código ──────────────────────────────────────────────
+                    raw_code = (emp.get("codigo")
+                                or emp.get("employee_code")
+                                or emp.get("id"))
                     if not raw_code:
                         continue
-                    codigo = str(int(raw_code)).zfill(4) if isinstance(raw_code, (int, float)) or (isinstance(raw_code, str) and raw_code.isdigit()) else str(raw_code).strip().zfill(4)
-                    
-                    nombre = str(emp.get("full_name", "")).strip()
+                    raw_code_str = str(raw_code).strip()
+                    if raw_code_str.isdigit():
+                        codigo = raw_code_str.zfill(4)
+                    elif isinstance(raw_code, float):
+                        codigo = str(int(raw_code)).zfill(4)
+                    else:
+                        codigo = raw_code_str  # e.g. "EMP-044485307"
+
+                    # ── Nombre ───────────────────────────────────────────────
+                    nombre = str(emp.get("nombre") or emp.get("full_name") or "").strip()
                     if not nombre:
                         continue
-                        
-                    dui = str(emp.get("dui", "")).strip() if emp.get("dui") else None
-                    cargo = str(emp.get("job_title", "")).strip() if emp.get("job_title") else None
-                    
-                    ingreso = emp.get("hire_date")
-                    if ingreso:
-                        ingreso = str(ingreso).strip()[:10]
-                    else:
-                        ingreso = None
-                        
-                    fin = emp.get("end_date")
-                    if fin:
-                        fin = str(fin).strip()[:10]
-                    else:
-                        fin = None
-                        
-                    salario_raw = emp.get("salary")
+
+                    # ── DUI ──────────────────────────────────────────────────
+                    dui_raw = emp.get("dui") or ""
+                    dui = str(dui_raw).strip() if dui_raw else None
+
+                    # ── Cargo ────────────────────────────────────────────────
+                    cargo_raw = emp.get("cargo") or emp.get("job_title") or ""
+                    cargo = str(cargo_raw).strip() if cargo_raw else None
+
+                    # ── Fecha ingreso ────────────────────────────────────────
+                    ingreso_raw = emp.get("fecha_ingreso") or emp.get("hire_date")
+                    ingreso = str(ingreso_raw).strip()[:10] if ingreso_raw else None
+
+                    # ── Fecha fin ────────────────────────────────────────────
+                    fin_raw = emp.get("fecha_fin") or emp.get("end_date")
+                    fin = str(fin_raw).strip()[:10] if fin_raw else None
+
+                    # ── Fecha contratación ───────────────────────────────────
+                    contratacion_raw = emp.get("fecha_contratacion")
+                    contratacion = str(contratacion_raw).strip()[:10] if contratacion_raw else ingreso
+
+                    # ── Salario ──────────────────────────────────────────────
+                    salario_raw = emp.get("salario_mensual") or emp.get("salary")
                     if salario_raw:
                         cleaned_sal = "".join(c for c in str(salario_raw) if c.isdigit() or c == '.')
                         salario = float(cleaned_sal) if cleaned_sal else 0.0
                     else:
                         salario = 0.0
-                        
-                    salario_letras = str(emp.get("salary_words", "")).strip() if emp.get("salary_words") else None
-                    isss = str(emp.get("isss", "")).strip() if emp.get("isss") else None
-                    afp = str(emp.get("afp", "")).strip() if emp.get("afp") else None
-                    isr = str(emp.get("isr", "")).strip() if emp.get("isr") else None
-                    personal = str(emp.get("personal_loan", "")).strip() if emp.get("personal_loan") else None
-                    bank = str(emp.get("bank_loan", "")).strip() if emp.get("bank_loan") else None
-                    fsv = str(emp.get("fsv", "")).strip() if emp.get("fsv") else None
-                    
+
+                    # ── Deducciones ──────────────────────────────────────────
+                    salario_letras = str(emp.get("salario_letras") or emp.get("salary_words") or "").strip() or None
+                    isss   = str(emp.get("isss")   or "").strip() or None
+                    afp    = str(emp.get("afp")    or "").strip() or None
+                    isr    = str(emp.get("isr")    or "").strip() or None
+                    personal = str(emp.get("prestamo_personal") or emp.get("personal_loan") or "").strip() or None
+                    bank     = str(emp.get("prestamo_bancario") or emp.get("bank_loan")     or "").strip() or None
+                    fsv    = str(emp.get("fsv")    or "").strip() or None
+
+                    # ── Departamento / días vacación ─────────────────────────
+                    departamento = str(emp.get("departamento") or "").strip() or None
+                    dias_vac = emp.get("dias_vacacion_pendientes")
+                    try:
+                        dias_vac = float(dias_vac) if dias_vac is not None else 0.0
+                    except (ValueError, TypeError):
+                        dias_vac = 0.0
+
+                    # ── Upsert ───────────────────────────────────────────────
                     cur.execute("SELECT codigo FROM empleados WHERE codigo = ?", (codigo,))
-                    if cur.fetchone():
+                    exists_by_codigo = cur.fetchone()
+
+                    # If DUI given and codigo not found, check by DUI to avoid duplicates
+                    if not exists_by_codigo and dui:
+                        cur.execute("SELECT codigo FROM empleados WHERE dui = ?", (dui,))
+                        row_by_dui = cur.fetchone()
+                        if row_by_dui:
+                            # Update by DUI
+                            cur.execute(
+                                """
+                                UPDATE empleados
+                                SET nombre=?, cargo=?, fecha_ingreso=?, salario_mensual=?,
+                                    dui=?, fecha_fin=?, salario_letras=?, isss=?, afp=?, isr=?,
+                                    prestamo_personal=?, prestamo_bancario=?, fsv=?,
+                                    departamento=?, fecha_contratacion=?, dias_vacacion_pendientes=?
+                                WHERE dui=?
+                                """,
+                                (nombre, cargo, ingreso, salario, dui, fin, salario_letras, isss, afp, isr,
+                                 personal, bank, fsv, departamento, contratacion, dias_vac, dui)
+                            )
+                            imported_count += 1
+                            continue
+
+                    if exists_by_codigo:
                         cur.execute(
                             """
                             UPDATE empleados
                             SET nombre=?, cargo=?, fecha_ingreso=?, salario_mensual=?,
                                 dui=?, fecha_fin=?, salario_letras=?, isss=?, afp=?, isr=?,
-                                prestamo_personal=?, prestamo_bancario=?, fsv=?
+                                prestamo_personal=?, prestamo_bancario=?, fsv=?,
+                                departamento=?, fecha_contratacion=?, dias_vacacion_pendientes=?
                             WHERE codigo=?
                             """,
-                            (nombre, cargo, ingreso, salario, dui, fin, salario_letras, isss, afp, isr, personal, bank, fsv, codigo)
+                            (nombre, cargo, ingreso, salario, dui, fin, salario_letras, isss, afp, isr,
+                             personal, bank, fsv, departamento, contratacion, dias_vac, codigo)
                         )
                     else:
                         cur.execute(
                             """
                             INSERT INTO empleados (
                                 codigo, nombre, cargo, fecha_ingreso, salario_mensual, activo, dui,
-                                fecha_fin, salario_letras, isss, afp, isr, prestamo_personal, prestamo_bancario, fsv
-                            ) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                fecha_fin, salario_letras, isss, afp, isr, prestamo_personal, prestamo_bancario, fsv,
+                                departamento, fecha_contratacion, dias_vacacion_pendientes
+                            ) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                             """,
-                            (codigo, nombre, cargo, ingreso, salario, dui, fin, salario_letras, isss, afp, isr, personal, bank, fsv)
+                            (codigo, nombre, cargo, ingreso, salario, dui, fin, salario_letras, isss, afp, isr,
+                             personal, bank, fsv, departamento, contratacion, dias_vac)
                         )
                     imported_count += 1
                 except Exception as ex:
