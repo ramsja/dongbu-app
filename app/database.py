@@ -316,28 +316,38 @@ def init_db():
         except sqlite3.IntegrityError:
             pass
 
-    # Seed initial templates if they exist locally
+    # Seed initial templates
     TEMPLATES_DIR = os.path.join(os.path.dirname(DB_PATH), "..", "app", "uploads", "templates")
+    seed_root = os.path.join(os.path.dirname(__file__), "seed_templates")
     seeds = [
-        ("salario", r"C:\Users\HP\Documents\Formato de constancia\Constancia de salario Firmada.docx"),
-        ("laboral", r"C:\Users\HP\Documents\Formato de constancia\Constancia Laboral.docx"),
+        ("salario", "Constancia de salario Firmada.docx"),
+        ("laboral", "Constancia Laboral.docx"),
     ]
-    for doc_type, src_path in seeds:
+    for doc_type, filename in seeds:
         cur.execute("SELECT id FROM templates WHERE doc_type = ? AND is_active = 1", (doc_type,))
-        if not cur.fetchone() and os.path.exists(src_path):
-            folder = os.path.join(TEMPLATES_DIR, doc_type)
-            os.makedirs(folder, exist_ok=True)
-            filename = os.path.basename(src_path)
-            target = os.path.join(folder, filename)
-            try:
-                shutil.copy2(src_path, target)
-                cur.execute(
-                    "INSERT INTO templates (doc_type, filename, stored_path, is_active, created_at) VALUES (?, ?, ?, 1, ?)",
-                    (doc_type, filename, target, datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
-                )
-                conn.commit()
-                print(f"[init_db] Plantilla {doc_type} precargada con éxito.")
-            except Exception as e:
-                print(f"[init_db] Error al precargar plantilla {doc_type}: {e}")
+        if not cur.fetchone():
+            candidate_1 = os.path.join(seed_root, doc_type, filename)
+            candidate_2 = os.path.join(r"C:\Users\HP\Documents\Formato de constancia", filename)
+            
+            src_path = None
+            if os.path.exists(candidate_1):
+                src_path = candidate_1
+            elif os.path.exists(candidate_2):
+                src_path = candidate_2
+                
+            if src_path:
+                folder = os.path.join(TEMPLATES_DIR, doc_type)
+                os.makedirs(folder, exist_ok=True)
+                target = os.path.join(folder, filename)
+                try:
+                    shutil.copy2(src_path, target)
+                    cur.execute(
+                        "INSERT INTO templates (doc_type, filename, stored_path, is_active, created_at) VALUES (?, ?, ?, 1, ?)",
+                        (doc_type, filename, target, datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+                    )
+                    conn.commit()
+                    print(f"[init_db] Plantilla {doc_type} precargada con éxito.")
+                except Exception as e:
+                    print(f"[init_db] Error al precargar plantilla {doc_type}: {e}")
 
     conn.close()
