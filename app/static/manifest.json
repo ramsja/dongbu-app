@@ -4,8 +4,8 @@
   "description": "Sistema interno de Vacaciones, Incapacidades y Constancias - Dongbu Corporation El Salvador",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#1a5f3c",
-  "theme_color": "#1a5f3c",
+  "background_color": "#FF6B00",
+  "theme_color": "#FF6B00",
   "orientation": "portrait-primary",
   "lang": "es",
   "icons": [
