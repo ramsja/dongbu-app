@@ -40,6 +40,11 @@ os.makedirs(TEMPLATES_DIR, exist_ok=True)
 os.makedirs(GENERATED_DIR, exist_ok=True)
 
 
+@app.template_filter("basename")
+def basename_filter(s):
+    return os.path.basename(s) if s else ""
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
