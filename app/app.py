@@ -1094,7 +1094,7 @@ def admin_upload_excel():
 
 @app.route("/admin/constancias/upload-report", methods=["POST"])
 @login_required
-def admin_upload_pdf():
+def admin_upload_report():
     file = request.files.get("report")
     if not file or file.filename == "":
         flash("Debes seleccionar un archivo PDF.", "error")
