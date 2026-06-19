@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}Descargar Constancia - Dongbu{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-8 col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-header dongbu-card-header bg-success text-white">
+        <i class="fa-solid fa-file-invoice me-2"></i>Autoservicio de Constancias
+      </div>
+      <div class="card-body">
+        <p class="text-muted small mb-4">Ingresa tu número de DUI registrado en el sistema de Dongbu Corporation para verificar tu identidad y generar tu constancia oficial al instante.</p>
+        
+        <div class="mb-4">
+          <label for="dui" class="form-label fw-semibold">Número de DUI</label>
+          <div class="input-group">
+            <span class="input-group-text"><i class="fa-solid fa-id-card"></i></span>
+            <input type="text" class="form-control" id="dui" placeholder="Ej. 01798051-2" required>
+            <button type="button" id="btn-buscar" class="btn btn-primary fw-semibold">Buscar</button>
+          </div>
+          <div id="dui-feedback" class="form-text mt-2"></div>
+        </div>
+
+        <form method="POST" action="{{ url_for('public_generate_constancia') }}" id="form-descarga" style="display: none;">
+          <input type="hidden" name="dui" id="hidden-dui">
+          
+          <div class="card bg-light border-0 mb-4 p-3">
+            <div class="d-flex align-items-center">
+              <div class="bg-success text-white rounded-circle p-2 me-3" style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;">
+                <i class="fa-solid fa-circle-user fs-4"></i>
+              </div>
+              <div>
+                <h6 class="m-0" id="emp-nombre">Juan Pérez</h6>
+                <div class="text-muted small" id="emp-cargo">Auxiliar de Obra</div>
+                <div class="text-muted small" id="emp-codigo">Código: 0140</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label fw-semibold">Selecciona el tipo de constancia que necesitas</label>
+            <div class="row g-2">
+              <div class="col-6">
+                <input type="radio" class="btn-check" name="doc_type" id="type-salario" value="salario" checked autocomplete="off">
+                <label class="btn btn-outline-success w-100 py-3 d-flex flex-column align-items-center justify-content-center" for="type-salario">
+                  <i class="fa-solid fa-hand-holding-dollar fs-3 mb-2"></i>
+                  <span>Constancia de Salario</span>
+                </label>
+              </div>
+              <div class="col-6">
+                <input type="radio" class="btn-check" name="doc_type" id="type-laboral" value="laboral" autocomplete="off">
+                <label class="btn btn-outline-success w-100 py-3 d-flex flex-column align-items-center justify-content-center" for="type-laboral">
+                  <i class="fa-solid fa-briefcase fs-3 mb-2"></i>
+                  <span>Constancia Laboral</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-success w-100 py-2 fw-semibold">
+            <i class="fa-solid fa-file-arrow-down me-2"></i>Descargar Constancia Oficial
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const duiInput = document.getElementById('dui');
+  const btnBuscar = document.getElementById('btn-buscar');
+  const duiFeedback = document.getElementById('dui-feedback');
+  const formDescarga = document.getElementById('form-descarga');
+  const hiddenDui = document.getElementById('hidden-dui');
+  
+  const empNombre = document.getElementById('emp-nombre');
+  const empCargo = document.getElementById('emp-cargo');
+  const empCodigo = document.getElementById('emp-codigo');
+
+  // Simple DUI Autoformat (########-#)
+  duiInput.addEventListener('input', function() {
+    let val = this.value.replace(/\D/g, '');
+    if (val.length > 8) {
+      val = val.substring(0, 8) + '-' + val.substring(8, 9);
+    }
+    this.value = val.substring(0, 10);
+  });
+
+  async function buscarDui() {
+    const val = duiInput.value.trim();
+    if (!val) {
+      duiFeedback.innerHTML = '<span class="text-danger"><i class="fa-solid fa-circle-exclamation me-1"></i>Ingresa un DUI válido.</span>';
+      formDescarga.style.display = 'none';
+      return;
+    }
+
+    btnBuscar.disabled = true;
+    btnBuscar.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Buscando...';
+    duiFeedback.textContent = '';
+    
+    try {
+      const res = await fetch(`/api/empleado/dui/${val}`);
+      const data = await res.json();
+      
+      if (res.ok && data.ok) {
+        empNombre.textContent = data.nombre;
+        empCargo.textContent = data.cargo || 'Sin cargo asignado';
+        empCodigo.textContent = `Código Empleado: ${data.codigo}`;
+        hiddenDui.value = val;
+        
+        duiFeedback.innerHTML = '<span class="text-success"><i class="fa-solid fa-circle-check me-1"></i>Identidad confirmada exitosamente.</span>';
+        formDescarga.style.display = 'block';
+      } else {
+        duiFeedback.innerHTML = `<span class="text-danger"><i class="fa-solid fa-circle-xmark me-1"></i>${data.error || 'DUI no registrado o inactivo.'}</span>`;
+        formDescarga.style.display = 'none';
+      }
+    } catch (e) {
+      duiFeedback.innerHTML = '<span class="text-danger"><i class="fa-solid fa-triangle-exclamation me-1"></i>Error de conexión. Inténtalo de nuevo.</span>';
+      formDescarga.style.display = 'none';
+    } finally {
+      btnBuscar.disabled = false;
+      btnBuscar.textContent = 'Buscar';
+    }
+  }
+
+  btnBuscar.addEventListener('click', buscarDui);
+  duiInput.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+      buscarDui();
+    }
+  });
+});
+</script>
+{% endblock %}

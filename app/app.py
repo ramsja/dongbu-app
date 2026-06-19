@@ -967,8 +967,8 @@ def render_docx_from_template(template_path: Path, employee: dict, doc_type: str
     bank = employee.get("prestamo_bancario") or "$0.00"
     fsv = employee.get("fsv") or "$0.00"
     
-    total_deductions = sum(currency(x) for x in [isss, afp, isr, personal, bank, fsv])
-    net = max(sal_val - total_deductions, 0)
+    total_deducciones = sum(currency(x) for x in [isss, afp, isr, personal, bank, fsv])
+    net = max(sal_val - total_deducciones, 0)
     fecha_emision = datetime.now()
     
     replacements = {
@@ -1190,7 +1190,7 @@ def admin_generate_constancia():
         
         db = get_db()
         db.execute(
-            "INSERT INTO generated_documents (codigo_empleado, doc_type, docx_path, pdf_path, created_at) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO generated_documents (codigo_empleado, doc_type, docx_path, pdf_path, created_at, generado_por) VALUES (?, ?, ?, ?, ?, 'admin')",
             (codigo, doc_type, str(docx_path), str(pdf_path) if pdf_path else None, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         )
         db.commit()
@@ -1234,6 +1234,259 @@ def admin_download_constancia(filename):
     if not os.path.exists(path):
         abort(404)
     return send_from_directory(GENERATED_DIR, safe_name, as_attachment=True, download_name=safe_name)
+
+
+# ===========================================================================
+# AUTOSERVICIO DE CONSTANCIAS (PÚBLICO) & REPORTE DE VACACIONES (ADMIN)
+# ===========================================================================
+
+@app.route("/constancias")
+def public_constancias():
+    return render_template("solicitud_constancia.html")
+
+@app.route("/api/constancia/generate", methods=["POST"])
+def public_generate_constancia():
+    dui = request.form.get("dui", "").strip()
+    doc_type = request.form.get("doc_type", "salario")
+    
+    if not dui:
+        flash("El número de DUI es obligatorio.", "error")
+        return redirect(url_for("public_constancias"))
+        
+    db = get_db()
+    employee = db.execute("SELECT * FROM empleados WHERE dui = ?", (dui,)).fetchone()
+    db.close()
+    
+    if not employee:
+        flash("No se encontró ningún empleado registrado con ese DUI.", "error")
+        return redirect(url_for("public_constancias"))
+        
+    if not employee["activo"]:
+        flash("El empleado asociado a este DUI no se encuentra activo.", "error")
+        return redirect(url_for("public_constancias"))
+        
+    template = get_active_template(doc_type)
+    if not template:
+        flash(f"No hay una plantilla activa para constancias de {doc_type}.", "error")
+        return redirect(url_for("public_constancias"))
+        
+    try:
+        docx_path = render_docx_from_template(Path(template["stored_path"]), dict(employee), doc_type)
+        pdf_path = convert_to_pdf(docx_path)
+        
+        db = get_db()
+        db.execute(
+            """
+            INSERT INTO generated_documents (codigo_empleado, doc_type, docx_path, pdf_path, created_at, generado_por)
+            VALUES (?, ?, ?, ?, ?, 'empleado')
+            """,
+            (employee["codigo"], doc_type, str(docx_path), str(pdf_path) if pdf_path else None, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        )
+        db.commit()
+        db.close()
+        
+        file_to_send = pdf_path if pdf_path else docx_path
+        return send_from_directory(
+            GENERATED_DIR, 
+            file_to_send.name, 
+            as_attachment=True, 
+            download_name=file_to_send.name
+        )
+    except Exception as e:
+        flash(f"Error al generar la constancia: {e}", "error")
+        return redirect(url_for("public_constancias"))
+
+@app.route("/admin/reporte-vacaciones")
+@login_required
+def admin_reporte_vacaciones():
+    dep_filter = request.args.get("departamento", "").strip()
+    month_filter = request.args.get("mes", "").strip()
+    search_query = request.args.get("q", "").strip()
+    
+    db = get_db()
+    departments = [row["departamento"] for row in db.execute(
+        "SELECT DISTINCT departamento FROM empleados WHERE activo=1 AND departamento IS NOT NULL AND departamento != '' ORDER BY departamento"
+    ).fetchall()]
+    
+    query = "SELECT * FROM empleados WHERE activo=1"
+    params = []
+    
+    if dep_filter:
+        query += " AND departamento = ?"
+        params.append(dep_filter)
+        
+    if month_filter:
+        m_val = month_filter.zfill(2)
+        # Match using fecha_ingreso or fecha_contratacion month
+        query += " AND (strftime('%m', fecha_ingreso) = ? OR strftime('%m', fecha_contratacion) = ?)"
+        params.extend([m_val, m_val])
+        
+    if search_query:
+        query += " AND (nombre LIKE ? OR codigo LIKE ? OR dui LIKE ?)"
+        q_val = f"%{search_query}%"
+        params.extend([q_val, q_val, q_val])
+        
+    query += " ORDER BY nombre"
+    empleados_raw = db.execute(query, params).fetchall()
+    db.close()
+    
+    empleados = []
+    total_salarios = 0.0
+    total_prima = 0.0
+    total_dias_pendientes = 0.0
+    total_valor_pendientes = 0.0
+    total_costo_proyectado = 0.0
+    
+    for emp in empleados_raw:
+        sal = emp["salario_mensual"] or 0.0
+        dias_pend = emp["dias_vacacion_pendientes"] or 0.0
+        
+        prima = (sal / 30.0 * 15.0) * 0.30
+        valor_dias = (sal / 30.0) * dias_pend
+        total_emp = prima + valor_dias
+        
+        total_salarios += sal
+        total_prima += prima
+        total_dias_pendientes += dias_pend
+        total_valor_pendientes += valor_dias
+        total_costo_proyectado += total_emp
+        
+        month_num = None
+        # Try to parse from fecha_ingreso
+        if emp["fecha_ingreso"]:
+            try:
+                parts = emp["fecha_ingreso"].split("-")
+                if len(parts) >= 2:
+                    month_num = int(parts[1])
+            except (ValueError, IndexError):
+                pass
+        
+        month_name = MONTHS_ES[month_num].capitalize() if (month_num and 0 < month_num < len(MONTHS_ES)) else "N/A"
+        
+        empleados.append({
+            "codigo": emp["codigo"],
+            "nombre": emp["nombre"],
+            "cargo": emp["cargo"],
+            "departamento": emp["departamento"],
+            "fecha_ingreso": emp["fecha_ingreso"],
+            "fecha_contratacion": emp["fecha_contratacion"],
+            "salario": sal,
+            "dias_pendientes": dias_pend,
+            "prima": prima,
+            "valor_dias": valor_dias,
+            "total": total_emp,
+            "mes_aniversario": month_name
+        })
+        
+    filtros = {
+        "departamento": dep_filter,
+        "mes": month_filter,
+        "q": search_query
+    }
+    
+    return render_template(
+        "admin_reporte_vacaciones.html",
+        empleados=empleados,
+        departments=departments,
+        filtros=filtros,
+        total_salarios=total_salarios,
+        total_prima=total_prima,
+        total_dias_pendientes=total_dias_pendientes,
+        total_valor_pendientes=total_valor_pendientes,
+        total_costo_proyectado=total_costo_proyectado,
+        months=MONTHS_ES
+    )
+
+@app.route("/admin/reporte-vacaciones/edit-days", methods=["POST"])
+@login_required
+def admin_reporte_vacaciones_edit_days():
+    codigo = request.form.get("codigo")
+    dias_s = request.form.get("dias_pendientes")
+    
+    if not codigo:
+        return jsonify({"ok": False, "error": "El código del empleado es obligatorio."}), 400
+        
+    try:
+        dias = float(dias_s) if dias_s else 0.0
+    except ValueError:
+        return jsonify({"ok": False, "error": "El valor de los días debe ser un número válido."}), 400
+        
+    db = get_db()
+    cur = db.cursor()
+    cur.execute("SELECT codigo FROM empleados WHERE codigo = ?", (codigo,))
+    if not cur.fetchone():
+        db.close()
+        return jsonify({"ok": False, "error": "Empleado no encontrado."}), 404
+        
+    cur.execute("UPDATE empleados SET dias_vacacion_pendientes = ? WHERE codigo = ?", (dias, codigo))
+    db.commit()
+    db.close()
+    
+    return jsonify({"ok": True})
+
+@app.route("/admin/reporte-vacaciones/export")
+@login_required
+def admin_reporte_vacaciones_export():
+    dep_filter = request.args.get("departamento", "").strip()
+    month_filter = request.args.get("mes", "").strip()
+    search_query = request.args.get("q", "").strip()
+    
+    db = get_db()
+    query = "SELECT * FROM empleados WHERE activo=1"
+    params = []
+    
+    if dep_filter:
+        query += " AND departamento = ?"
+        params.append(dep_filter)
+        
+    if month_filter:
+        m_val = month_filter.zfill(2)
+        query += " AND (strftime('%m', fecha_ingreso) = ? OR strftime('%m', fecha_contratacion) = ?)"
+        params.extend([m_val, m_val])
+        
+    if search_query:
+        query += " AND (nombre LIKE ? OR codigo LIKE ? OR dui LIKE ?)"
+        q_val = f"%{search_query}%"
+        params.extend([q_val, q_val, q_val])
+        
+    query += " ORDER BY nombre"
+    empleados_raw = db.execute(query, params).fetchall()
+    db.close()
+    
+    output = io.StringIO()
+    output.write(u'\ufeff')
+    writer = csv.writer(output)
+    
+    writer.writerow([
+        "Código", "Nombre", "Departamento", "Cargo", "Fecha Ingreso", "Fecha Contratación",
+        "Salario Nominal ($)", "Prima Vacacional 30% ($)", "Días Vacación Pendientes", "Valor Días Pendientes ($)", "Total Proyección ($)"
+    ])
+    
+    for emp in empleados_raw:
+        sal = emp["salario_mensual"] or 0.0
+        dias_pend = emp["dias_vacacion_pendientes"] or 0.0
+        prima = (sal / 30.0 * 15.0) * 0.30
+        valor_dias = (sal / 30.0) * dias_pend
+        total_emp = prima + valor_dias
+        
+        writer.writerow([
+            emp["codigo"],
+            emp["nombre"],
+            emp["departamento"] or "",
+            emp["cargo"] or "",
+            emp["fecha_ingreso"] or "",
+            emp["fecha_contratacion"] or "",
+            f"{sal:.2f}",
+            f"{prima:.2f}",
+            f"{dias_pend:.1f}",
+            f"{valor_dias:.2f}",
+            f"{total_emp:.2f}"
+        ])
+        
+    filename = f"reporte_vacaciones_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    response = Response(output.getvalue(), mimetype="text/csv")
+    response.headers["Content-Disposition"] = f"attachment; filename={filename}"
+    return response
 
 
 @app.errorhandler(404)

@@ -22,9 +22,18 @@
         <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-light btn-sm"><i class="fa-solid fa-chart-column me-1"></i>Panel</a>
         <a href="{{ url_for('admin_empleados') }}" class="btn btn-outline-light btn-sm"><i class="fa-solid fa-users me-1"></i>Empleados</a>
         <a href="{{ url_for('admin_constancias') }}" class="btn btn-outline-light btn-sm"><i class="fa-solid fa-file-invoice me-1"></i>Constancias</a>
+        <a href="{{ url_for('admin_reporte_vacaciones') }}" class="btn btn-outline-light btn-sm"><i class="fa-solid fa-umbrella-beach me-1"></i>Reporte Vacaciones</a>
         <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-light btn-sm"><i class="fa-solid fa-right-from-bracket me-1"></i>Salir</a>
       {% else %}
-        <a href="{{ url_for('empleado_form') }}" class="btn btn-outline-light btn-sm"><i class="fa-solid fa-user me-1"></i>Empleado</a>
+        <div class="dropdown">
+          <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <i class="fa-solid fa-user me-1"></i>Empleado
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2">
+            <li><a class="dropdown-item small" href="{{ url_for('empleado_form') }}"><i class="fa-solid fa-clipboard-list me-2 text-primary"></i>Registrar Vacación / Incapacidad</a></li>
+            <li><a class="dropdown-item small" href="{{ url_for('public_constancias') }}"><i class="fa-solid fa-file-pdf me-2 text-danger"></i>Descargar Constancia</a></li>
+          </ul>
+        </div>
         <a href="{{ url_for('admin_login') }}" class="btn btn-warning btn-sm text-dark fw-semibold"><i class="fa-solid fa-lock me-1"></i>Administrador</a>
       {% endif %}
     </div>

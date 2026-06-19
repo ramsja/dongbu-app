@@ -112,15 +112,99 @@ def init_db():
         ("isr", "TEXT"),
         ("prestamo_personal", "TEXT"),
         ("prestamo_bancario", "TEXT"),
-        ("fsv", "TEXT")
+        ("fsv", "TEXT"),
+        ("departamento", "TEXT"),
+        ("fecha_contratacion", "TEXT"),
+        ("dias_vacacion_pendientes", "REAL DEFAULT 0")
     ]
     for col_name, col_type in migrations:
         if col_name not in emp_columns:
             cur.execute(f"ALTER TABLE empleados ADD COLUMN {col_name} {col_type}")
 
+    # Dynamic migration to add 'generado_por' to 'generated_documents' if it doesn't exist yet
+    cur.execute("PRAGMA table_info(generated_documents)")
+    doc_columns = [row[1] for row in cur.fetchall()]
+    if "generado_por" not in doc_columns:
+        cur.execute("ALTER TABLE generated_documents ADD COLUMN generado_por TEXT DEFAULT 'admin'")
+
     conn.commit()
 
-    # Seed employees only if table is empty
+    # Seed/update employees from Control de vacaciones.xlsx
+    excel_path = r"C:\Users\HP\Documents\Control de vacaciones.xlsx"
+    if os.path.exists(excel_path):
+        try:
+            import openpyxl
+            wb = openpyxl.load_workbook(excel_path, data_only=True)
+            if "Empleados" in wb.sheetnames:
+                sheet = wb["Empleados"]
+                imported_count = 0
+                for idx in range(5, sheet.max_row + 1):
+                    row = [cell.value for cell in sheet[idx]]
+                    if not row or len(row) < 9 or row[1] is None:
+                        continue
+                    
+                    try:
+                        raw_code = row[1]
+                        codigo = str(int(raw_code)).zfill(4) if isinstance(raw_code, (int, float)) else str(raw_code).strip().zfill(4)
+                        
+                        nombre = str(row[2]).strip()
+                        
+                        ingreso_dt = row[3]
+                        if isinstance(ingreso_dt, datetime):
+                            fecha_ingreso = ingreso_dt.strftime("%Y-%m-%d")
+                        elif ingreso_dt:
+                            fecha_ingreso = str(ingreso_dt).strip()[:10]
+                        else:
+                            fecha_ingreso = ""
+                            
+                        contratacion_dt = row[4]
+                        if isinstance(contratacion_dt, datetime):
+                            fecha_contratacion = contratacion_dt.strftime("%Y-%m-%d")
+                        elif contratacion_dt:
+                            fecha_contratacion = str(contratacion_dt).strip()[:10]
+                        else:
+                            fecha_contratacion = ""
+                            
+                        salario = float(row[5]) if row[5] is not None else 0.0
+                        departamento = str(row[6]).strip() if row[6] else ""
+                        cargo = str(row[7]).strip() if row[7] else ""
+                        
+                        estado = str(row[8]).strip().lower() if row[8] else "activo"
+                        activo = 1 if estado in ("activo", "active", "1") else 0
+                        
+                        dias_vac = float(row[14]) if (len(row) > 14 and row[14] is not None) else 0.0
+                        
+                        cur.execute("SELECT codigo FROM empleados WHERE codigo = ?", (codigo,))
+                        if cur.fetchone():
+                            cur.execute(
+                                """
+                                UPDATE empleados
+                                SET nombre=?, cargo=?, fecha_ingreso=?, salario_mensual=?,
+                                    activo=?, departamento=?, fecha_contratacion=?, dias_vacacion_pendientes=?
+                                WHERE codigo=?
+                                """,
+                                (nombre, cargo, fecha_ingreso, salario, activo, departamento, fecha_contratacion, dias_vac, codigo)
+                            )
+                        else:
+                            cur.execute(
+                                """
+                                INSERT INTO empleados (
+                                    codigo, nombre, cargo, fecha_ingreso, salario_mensual, activo,
+                                    departamento, fecha_contratacion, dias_vacacion_pendientes
+                                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                """,
+                                (codigo, nombre, cargo, fecha_ingreso, salario, activo, departamento, fecha_contratacion, dias_vac)
+                            )
+                        imported_count += 1
+                    except Exception as ex:
+                        print(f"[init_db] Error procesando fila {idx} del Excel: {ex}")
+                wb.close()
+                conn.commit()
+                print(f"[init_db] {imported_count} empleados cargados/actualizados desde {excel_path}")
+        except Exception as e:
+            print(f"[init_db] Error al leer Control de vacaciones.xlsx: {e}")
+
+    # Seed employees from SEED_CSV only if table is empty (fallback)
     cur.execute("SELECT COUNT(*) AS c FROM empleados")
     if cur.fetchone()["c"] == 0 and os.path.exists(SEED_CSV):
         with open(SEED_CSV, newline="", encoding="utf-8") as f:
