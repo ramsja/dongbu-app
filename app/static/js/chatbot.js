@@ -1,7 +1,7 @@
 (function () {
   const TREE = {
     inicio: {
-      msg: "¡Hola! 👋 Soy el asistente de Dongbu. ¿En qué te puedo ayudar?",
+      msg: "¡Hola! 👋 Soy <b>Alessa</b>, tu asistente de Dongbu. ¿En qué te puedo ayudar?",
       options: [
         { label: "Registrar vacaciones", next: "vacaciones" },
         { label: "Registrar incapacidad", next: "incapacidad" },
@@ -58,7 +58,7 @@
       ],
     },
     rrhh: {
-      msg: "Para cualquier duda, consulta sobre tu aprobación o si necesitas ayuda tras haber subido mal algo, comunícate directamente con Recursos Humanos al <a href=\"https://wa.me/50378562855\" target=\"_blank\" class=\"text-success fw-bold\">78562855</a>. Para otros temas, yo (el bot) te seguiré ayudando con gusto.",
+      msg: "Para cualquier duda, consulta sobre tu aprobación o si necesitas ayuda tras haber subido mal algo, comunícate directamente con Recursos Humanos al <a href=\"https://wa.me/50378562855\" target=\"_blank\" class=\"text-success fw-bold\">78562855</a>. Para otros temas, yo (<b>Alessa</b>) te seguiré ayudando con gusto.",
       options: [
         { label: "Volver al menú", next: "inicio" },
       ],
