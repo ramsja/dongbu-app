@@ -248,7 +248,7 @@ def init_db():
                     else:
                         cur.execute(
                             """
-                            INSERT INTO empleados (
+                            INSERT OR IGNORE INTO empleados (
                                 codigo, nombre, cargo, fecha_ingreso, salario_mensual, activo, dui,
                                 fecha_fin, salario_letras, isss, afp, isr, prestamo_personal, prestamo_bancario, fsv,
                                 departamento, fecha_contratacion, dias_vacacion_pendientes
