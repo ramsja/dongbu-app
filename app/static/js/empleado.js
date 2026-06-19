@@ -56,23 +56,34 @@ document.addEventListener("DOMContentLoaded", function () {
             telefonoInput.removeAttribute("readonly");
           }
         } else {
-          nombreInput.removeAttribute("readonly");
-          cargoInput.removeAttribute("readonly");
-          correoInput.removeAttribute("readonly");
-          telefonoInput.removeAttribute("readonly");
-          empleadoValido = true;
-          feedback.textContent = "DUI no registrado. Puedes ingresar tus datos manualmente.";
-          feedback.className = "form-text text-info";
+          // DUI not found → block form and redirect to WhatsApp registration
+          empleadoValido = false;
+          feedback.innerHTML = `
+            <div class="alert alert-warning mt-2 mb-0 p-2">
+              <i class="fa-solid fa-triangle-exclamation me-1"></i>
+              <strong>DUI no registrado.</strong> Debes solicitar tu registro a Recursos Humanos antes de continuar.
+              <div class="mt-2">
+                <a href="https://wa.me/50378562855?text=${encodeURIComponent('Hola, necesito registrar mi DUI en el sistema Dongbu. Mi DUI es: ' + duiInput.value.trim())}" 
+                   target="_blank" class="btn btn-success btn-sm w-100">
+                  <i class="fa-brands fa-whatsapp me-1"></i>Solicitar registro por WhatsApp
+                </a>
+              </div>
+            </div>`;
         }
       })
       .catch(() => {
-        nombreInput.removeAttribute("readonly");
-        cargoInput.removeAttribute("readonly");
-        correoInput.removeAttribute("readonly");
-        telefonoInput.removeAttribute("readonly");
-        empleadoValido = true;
-        feedback.textContent = "Error de conexión. Puedes ingresar tus datos manualmente.";
-        feedback.className = "form-text text-warning";
+        empleadoValido = false;
+        feedback.innerHTML = `
+          <div class="alert alert-danger mt-2 mb-0 p-2">
+            <i class="fa-solid fa-wifi me-1"></i>
+            <strong>Sin conexión.</strong> Verifica tu internet e intenta de nuevo.
+            <div class="mt-2">
+              <a href="https://wa.me/50378562855?text=${encodeURIComponent('Hola, necesito ayuda para registrar mi solicitud en el sistema Dongbu.')}" 
+                 target="_blank" class="btn btn-success btn-sm w-100">
+                <i class="fa-brands fa-whatsapp me-1"></i>Contactar RRHH por WhatsApp
+              </a>
+            </div>
+          </div>`;
       });
   }
 
