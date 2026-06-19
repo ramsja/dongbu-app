@@ -129,6 +129,86 @@ def init_db():
 
     conn.commit()
 
+    # Seed/update employees from seed_mvp_employees.json
+    mvp_json_path = os.path.join(os.path.dirname(__file__), "seed_mvp_employees.json")
+    if os.path.exists(mvp_json_path):
+        try:
+            import json
+            with open(mvp_json_path, "r", encoding="utf-8") as f:
+                employees = json.load(f)
+            
+            imported_count = 0
+            for emp in employees:
+                try:
+                    raw_code = emp.get("employee_code") or emp.get("id")
+                    if not raw_code:
+                        continue
+                    codigo = str(int(raw_code)).zfill(4) if isinstance(raw_code, (int, float)) or (isinstance(raw_code, str) and raw_code.isdigit()) else str(raw_code).strip().zfill(4)
+                    
+                    nombre = str(emp.get("full_name", "")).strip()
+                    if not nombre:
+                        continue
+                        
+                    dui = str(emp.get("dui", "")).strip() if emp.get("dui") else None
+                    cargo = str(emp.get("job_title", "")).strip() if emp.get("job_title") else None
+                    
+                    ingreso = emp.get("hire_date")
+                    if ingreso:
+                        ingreso = str(ingreso).strip()[:10]
+                    else:
+                        ingreso = None
+                        
+                    fin = emp.get("end_date")
+                    if fin:
+                        fin = str(fin).strip()[:10]
+                    else:
+                        fin = None
+                        
+                    salario_raw = emp.get("salary")
+                    if salario_raw:
+                        cleaned_sal = "".join(c for c in str(salario_raw) if c.isdigit() or c == '.')
+                        salario = float(cleaned_sal) if cleaned_sal else 0.0
+                    else:
+                        salario = 0.0
+                        
+                    salario_letras = str(emp.get("salary_words", "")).strip() if emp.get("salary_words") else None
+                    isss = str(emp.get("isss", "")).strip() if emp.get("isss") else None
+                    afp = str(emp.get("afp", "")).strip() if emp.get("afp") else None
+                    isr = str(emp.get("isr", "")).strip() if emp.get("isr") else None
+                    personal = str(emp.get("personal_loan", "")).strip() if emp.get("personal_loan") else None
+                    bank = str(emp.get("bank_loan", "")).strip() if emp.get("bank_loan") else None
+                    fsv = str(emp.get("fsv", "")).strip() if emp.get("fsv") else None
+                    
+                    cur.execute("SELECT codigo FROM empleados WHERE codigo = ?", (codigo,))
+                    if cur.fetchone():
+                        cur.execute(
+                            """
+                            UPDATE empleados
+                            SET nombre=?, cargo=?, fecha_ingreso=?, salario_mensual=?,
+                                dui=?, fecha_fin=?, salario_letras=?, isss=?, afp=?, isr=?,
+                                prestamo_personal=?, prestamo_bancario=?, fsv=?
+                            WHERE codigo=?
+                            """,
+                            (nombre, cargo, ingreso, salario, dui, fin, salario_letras, isss, afp, isr, personal, bank, fsv, codigo)
+                        )
+                    else:
+                        cur.execute(
+                            """
+                            INSERT INTO empleados (
+                                codigo, nombre, cargo, fecha_ingreso, salario_mensual, activo, dui,
+                                fecha_fin, salario_letras, isss, afp, isr, prestamo_personal, prestamo_bancario, fsv
+                            ) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            """,
+                            (codigo, nombre, cargo, ingreso, salario, dui, fin, salario_letras, isss, afp, isr, personal, bank, fsv)
+                        )
+                    imported_count += 1
+                except Exception as ex:
+                    print(f"[init_db] Error processing JSON employee row: {ex}")
+            conn.commit()
+            print(f"[init_db] {imported_count} empleados cargados/actualizados desde {mvp_json_path}")
+        except Exception as e:
+            print(f"[init_db] Error al leer seed_mvp_employees.json: {e}")
+
     # Seed/update employees from Control de vacaciones.xlsx
     excel_path = r"C:\Users\HP\Documents\Control de vacaciones.xlsx"
     if os.path.exists(excel_path):
