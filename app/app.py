@@ -511,9 +511,35 @@ def admin_nuevo_empleado():
     if not fecha_ingreso:
         fecha_ingreso = date.today().isoformat()
 
+    isss = request.form.get("isss", "").strip()
+    afp = request.form.get("afp", "").strip()
+    isr = request.form.get("isr", "").strip()
+    prestamo_personal = request.form.get("personal_loan", "").strip()
+    prestamo_bancario = request.form.get("bank_loan", "").strip()
+    fsv = request.form.get("fsv", "").strip()
+    salario_letras = request.form.get("salary_words", "").strip()
+
+    if not isss and sal_val > 0:
+        isss = f"${min(sal_val, 1000.00) * 0.03:.2f}"
+    if not afp and sal_val > 0:
+        afp = f"${sal_val * 0.0725:.2f}"
+    if not isr and sal_val > 0:
+        isss_val = min(sal_val, 1000.00) * 0.03
+        afp_val = sal_val * 0.0725
+        taxable = max(sal_val - isss_val - afp_val, 0)
+        isr_val = calculate_isr(taxable)
+        isr = f"${isr_val:.2f}"
+    if not salario_letras and sal_val > 0:
+        salario_letras = salary_words(str(sal_val))
+
     db.execute(
-        "INSERT INTO empleados (codigo, nombre, cargo, fecha_ingreso, salario_mensual, activo, dui, correo, telefono) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?)",
-        (codigo, nombre, cargo, fecha_ingreso, sal_val, dui, correo, telefono)
+        """INSERT INTO empleados (
+            codigo, nombre, cargo, fecha_ingreso, salario_mensual, activo, dui, correo, telefono,
+            isss, afp, isr, prestamo_personal, prestamo_bancario, fsv, salario_letras
+           ) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (codigo, nombre, cargo, fecha_ingreso, sal_val, dui, correo, telefono,
+         isss or "$0.00", afp or "$0.00", isr or "$0.00", prestamo_personal or "$0.00",
+         prestamo_bancario or "$0.00", fsv or "$0.00", salario_letras)
     )
     db.commit()
     db.close()
@@ -561,10 +587,35 @@ def admin_editar_empleado(codigo):
     if not fecha_ingreso:
         fecha_ingreso = emp["fecha_ingreso"]
 
+    isss = request.form.get("isss", "").strip()
+    afp = request.form.get("afp", "").strip()
+    isr = request.form.get("isr", "").strip()
+    prestamo_personal = request.form.get("personal_loan", "").strip()
+    prestamo_bancario = request.form.get("bank_loan", "").strip()
+    fsv = request.form.get("fsv", "").strip()
+    salario_letras = request.form.get("salary_words", "").strip()
+
+    if not isss and sal_val > 0:
+        isss = f"${min(sal_val, 1000.00) * 0.03:.2f}"
+    if not afp and sal_val > 0:
+        afp = f"${sal_val * 0.0725:.2f}"
+    if not isr and sal_val > 0:
+        isss_val = min(sal_val, 1000.00) * 0.03
+        afp_val = sal_val * 0.0725
+        taxable = max(sal_val - isss_val - afp_val, 0)
+        isr_val = calculate_isr(taxable)
+        isr = f"${isr_val:.2f}"
+    if not salario_letras and sal_val > 0:
+        salario_letras = salary_words(str(sal_val))
+
     db.execute(
         """UPDATE empleados SET dui = ?, nombre = ?, cargo = ?, fecha_ingreso = ?,
-           salario_mensual = ?, correo = ?, telefono = ? WHERE codigo = ?""",
-        (dui or emp["dui"], nombre, cargo, fecha_ingreso, sal_val, correo, telefono, codigo)
+           salario_mensual = ?, correo = ?, telefono = ?, isss = ?, afp = ?, isr = ?,
+           prestamo_personal = ?, prestamo_bancario = ?, fsv = ?, salario_letras = ?
+           WHERE codigo = ?""",
+        (dui or emp["dui"], nombre, cargo, fecha_ingreso, sal_val, correo, telefono,
+         isss or "$0.00", afp or "$0.00", isr or "$0.00", prestamo_personal or "$0.00",
+         prestamo_bancario or "$0.00", fsv or "$0.00", salario_letras, codigo)
     )
     db.commit()
     db.close()

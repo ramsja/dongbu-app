@@ -46,6 +46,13 @@
                 data-salario="{{ e.salario_mensual or 0 }}"
                 data-correo="{{ e.correo or '' }}"
                 data-telefono="{{ e.telefono or '' }}"
+                data-isss="{{ e.isss or '' }}"
+                data-afp="{{ e.afp or '' }}"
+                data-isr="{{ e.isr or '' }}"
+                data-personal="{{ e.prestamo_personal or '' }}"
+                data-bank="{{ e.prestamo_bancario or '' }}"
+                data-fsv="{{ e.fsv or '' }}"
+                data-letras="{{ e.salario_letras or '' }}"
                 data-bs-toggle="modal" data-bs-target="#modalEditarEmpleado">
                 <i class="fa-solid fa-pen-to-square"></i>
               </button>
@@ -95,7 +102,47 @@
           </div>
           <div class="mb-3">
             <label class="form-label fw-semibold">Salario Mensual (opcional)</label>
-            <input type="number" name="salario" step="0.01" class="form-control" placeholder="0.00">
+            <input type="number" name="salario" id="new-salario" step="0.01" class="form-control" placeholder="0.00">
+          </div>
+          <h6 class="fw-bold border-top pt-3 border-bottom pb-2 mb-3 text-secondary mt-3"><i class="fa-solid fa-money-bill-wave me-2"></i>Sueldo en Letras y Deducciones</h6>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Salario en Letras</label>
+            <input type="text" name="salary_words" id="new-salary-words" class="form-control" placeholder="Ej. CUATROCIENTOS CINCUENTA 00/100">
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">ISSS (3%)</label>
+              <input type="text" name="isss" id="new-isss" class="form-control form-control-sm" placeholder="Auto">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">AFP (7.25%)</label>
+              <input type="text" name="afp" id="new-afp" class="form-control form-control-sm" placeholder="Auto">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Renta (ISR)</label>
+              <input type="text" name="isr" id="new-isr" class="form-control form-control-sm" placeholder="Auto">
+            </div>
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Prést. Personal</label>
+              <input type="text" name="personal_loan" id="new-personal-loan" class="form-control form-control-sm" placeholder="0.00">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Prést. Bancario</label>
+              <input type="text" name="bank_loan" id="new-bank-loan" class="form-control form-control-sm" placeholder="0.00">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">FSV</label>
+              <input type="text" name="fsv" id="new-fsv" class="form-control form-control-sm" placeholder="0.00">
+            </div>
+          </div>
+          <div class="bg-light rounded p-2 mb-3 d-flex justify-content-between align-items-center border">
+            <div>
+              <span class="text-muted small d-block">Salario neto estimado:</span>
+              <strong class="text-success" id="new-net-preview">$0.00</strong>
+            </div>
+            <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-2" id="new-recalc-btn" style="font-size: 0.75rem;"><i class="fa-solid fa-arrows-rotate me-1"></i>Calcular</button>
           </div>
           <div class="row g-2 mb-3">
             <div class="col-md-6">
@@ -164,6 +211,46 @@
               <input type="text" name="telefono" id="edit-telefono" class="form-control" placeholder="Ej. 7777-7777">
             </div>
           </div>
+          <h6 class="fw-bold border-top pt-3 border-bottom pb-2 mb-3 text-secondary mt-3"><i class="fa-solid fa-money-bill-wave me-2"></i>Sueldo en Letras y Deducciones</h6>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Salario en Letras</label>
+            <input type="text" name="salary_words" id="edit-salary-words" class="form-control" placeholder="Ej. CUATROCIENTOS CINCUENTA 00/100">
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">ISSS (3%)</label>
+              <input type="text" name="isss" id="edit-isss" class="form-control form-control-sm" placeholder="Auto">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">AFP (7.25%)</label>
+              <input type="text" name="afp" id="edit-afp" class="form-control form-control-sm" placeholder="Auto">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Renta (ISR)</label>
+              <input type="text" name="isr" id="edit-isr" class="form-control form-control-sm" placeholder="Auto">
+            </div>
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Prést. Personal</label>
+              <input type="text" name="personal_loan" id="edit-personal-loan" class="form-control form-control-sm" placeholder="0.00">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Prést. Bancario</label>
+              <input type="text" name="bank_loan" id="edit-bank-loan" class="form-control form-control-sm" placeholder="0.00">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">FSV</label>
+              <input type="text" name="fsv" id="edit-fsv" class="form-control form-control-sm" placeholder="0.00">
+            </div>
+          </div>
+          <div class="bg-light rounded p-2 mb-3 d-flex justify-content-between align-items-center border">
+            <div>
+              <span class="text-muted small d-block">Salario neto estimado:</span>
+              <strong class="text-success" id="edit-net-preview">$0.00</strong>
+            </div>
+            <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-2" id="edit-recalc-btn" style="font-size: 0.75rem;"><i class="fa-solid fa-arrows-rotate me-1"></i>Calcular</button>
+          </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -176,6 +263,7 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+  // Bind fields to edit modal
   document.querySelectorAll('.btn-editar').forEach(function(btn) {
     btn.addEventListener('click', function() {
       var codigo = this.dataset.codigo;
@@ -188,9 +276,121 @@ document.addEventListener('DOMContentLoaded', function() {
       document.getElementById('edit-salario').value = this.dataset.salario;
       document.getElementById('edit-correo').value = this.dataset.correo;
       document.getElementById('edit-telefono').value = this.dataset.telefono;
+      
+      document.getElementById('edit-isss').value = this.dataset.isss || '';
+      document.getElementById('edit-afp').value = this.dataset.afp || '';
+      document.getElementById('edit-isr').value = this.dataset.isr || '';
+      document.getElementById('edit-personal-loan').value = this.dataset.personal || '';
+      document.getElementById('edit-bank-loan').value = this.dataset.bank || '';
+      document.getElementById('edit-fsv').value = this.dataset.fsv || '';
+      document.getElementById('edit-salary-words').value = this.dataset.letras || '';
+      
       document.getElementById('formEditarEmpleado').action = '/admin/empleados/editar/' + codigo;
+      autoRecalculateEdit();
     });
   });
+
+  // Calculation logic
+  function cleanVal(str) {
+    if (!str) return 0;
+    return parseFloat(str.replace(/[^0-9.]/g, '')) || 0;
+  }
+
+  function calculateISR(taxable) {
+    if (taxable <= 550.00) return 0;
+    if (taxable <= 895.24) return 17.67 + ((taxable - 550.00) * 0.10);
+    if (taxable <= 2038.10) return 60.00 + ((taxable - 895.24) * 0.20);
+    return 288.57 + ((taxable - 2038.10) * 0.30);
+  }
+
+  // Helper for generic recalculation
+  function setupRecalculation(salaryIn, isssIn, afpIn, isrIn, personalIn, bankIn, fsvIn, netOut, recalcBtn, salaryWordsIn) {
+    function recalc() {
+      const gross = cleanVal(salaryIn.value);
+      if (gross <= 0) {
+        netOut.textContent = '$0.00';
+        return;
+      }
+
+      let isss = cleanVal(isssIn.value);
+      if (!isssIn.value) {
+        isss = Math.min(gross, 1000.00) * 0.03;
+        isssIn.value = '$' + isss.toFixed(2);
+      }
+
+      let afp = cleanVal(afpIn.value);
+      if (!afpIn.value) {
+        afp = gross * 0.0725;
+        afpIn.value = '$' + afp.toFixed(2);
+      }
+
+      let isr = cleanVal(isrIn.value);
+      if (!isrIn.value) {
+        const taxable = Math.max(gross - cleanVal(isssIn.value) - cleanVal(afpIn.value), 0);
+        isr = calculateISR(taxable);
+        isrIn.value = '$' + isr.toFixed(2);
+      }
+
+      const personal = cleanVal(personalIn.value);
+      const bank = cleanVal(bankIn.value);
+      const fsv = cleanVal(fsvIn.value);
+
+      const totalDeductions = cleanVal(isssIn.value) + cleanVal(afpIn.value) + cleanVal(isrIn.value) + personal + bank + fsv;
+      const net = Math.max(gross - totalDeductions, 0);
+
+      netOut.textContent = '$' + net.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    salaryIn.addEventListener('change', function() {
+      isssIn.value = '';
+      afpIn.value = '';
+      isrIn.value = '';
+      if (salaryWordsIn) salaryWordsIn.value = ''; // Let backend calculate or manual edit
+      recalc();
+    });
+
+    [isssIn, afpIn, isrIn, personalIn, bankIn, fsvIn].forEach(inp => {
+      inp.addEventListener('input', recalc);
+    });
+
+    recalcBtn.addEventListener('click', function() {
+      isssIn.value = '';
+      afpIn.value = '';
+      isrIn.value = '';
+      recalc();
+    });
+
+    recalc();
+    return recalc;
+  }
+
+  // Setup recalculation for "Nuevo"
+  const newRecalc = setupRecalculation(
+    document.getElementById('new-salario'),
+    document.getElementById('new-isss'),
+    document.getElementById('new-afp'),
+    document.getElementById('new-isr'),
+    document.getElementById('new-personal-loan'),
+    document.getElementById('new-bank-loan'),
+    document.getElementById('new-fsv'),
+    document.getElementById('new-net-preview'),
+    document.getElementById('new-recalc-btn'),
+    document.getElementById('new-salary-words')
+  );
+
+  // Setup recalculation for "Editar"
+  const autoRecalculateEdit = setupRecalculation(
+    document.getElementById('edit-salario'),
+    document.getElementById('edit-isss'),
+    document.getElementById('edit-afp'),
+    document.getElementById('edit-isr'),
+    document.getElementById('edit-personal-loan'),
+    document.getElementById('edit-bank-loan'),
+    document.getElementById('edit-fsv'),
+    document.getElementById('edit-net-preview'),
+    document.getElementById('edit-recalc-btn'),
+    document.getElementById('edit-salary-words')
+  );
 });
 </script>
 {% endblock %}
