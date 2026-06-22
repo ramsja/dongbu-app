@@ -91,11 +91,21 @@ def init_db():
         )
     """)
 
+    def safe_execute_alter(query):
+        try:
+            cur.execute(query)
+        except sqlite3.OperationalError as e:
+            err_msg = str(e).lower()
+            if "duplicate column name" in err_msg or "already exists" in err_msg:
+                pass
+            else:
+                raise e
+
     # Dynamic migration to add 'estado' to 'registros' if it doesn't exist yet
     cur.execute("PRAGMA table_info(registros)")
     columns = [row[1] for row in cur.fetchall()]
     if "estado" not in columns:
-        cur.execute("ALTER TABLE registros ADD COLUMN estado TEXT DEFAULT 'pendiente' CHECK(estado IN ('pendiente', 'aprobado', 'rechazado'))")
+        safe_execute_alter("ALTER TABLE registros ADD COLUMN estado TEXT DEFAULT 'pendiente' CHECK(estado IN ('pendiente', 'aprobado', 'rechazado'))")
 
     # Dynamic migration to add columns to 'empleados' if they don't exist yet
     cur.execute("PRAGMA table_info(empleados)")
@@ -119,13 +129,13 @@ def init_db():
     ]
     for col_name, col_type in migrations:
         if col_name not in emp_columns:
-            cur.execute(f"ALTER TABLE empleados ADD COLUMN {col_name} {col_type}")
+            safe_execute_alter(f"ALTER TABLE empleados ADD COLUMN {col_name} {col_type}")
 
     # Dynamic migration to add 'generado_por' to 'generated_documents' if it doesn't exist yet
     cur.execute("PRAGMA table_info(generated_documents)")
     doc_columns = [row[1] for row in cur.fetchall()]
     if "generado_por" not in doc_columns:
-        cur.execute("ALTER TABLE generated_documents ADD COLUMN generado_por TEXT DEFAULT 'admin'")
+        safe_execute_alter("ALTER TABLE generated_documents ADD COLUMN generado_por TEXT DEFAULT 'admin'")
 
     conn.commit()
 
