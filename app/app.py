@@ -1046,6 +1046,7 @@ def render_docx_from_template(template_path: Path, employee: dict, doc_type: str
         "{{total_recibir}}": f"${net:.2f}",
         "{{fecha_emision}}": fecha_emision.strftime("%d/%m/%Y"),
         "{{fecha_emision_letras}}": date_words_es(fecha_emision),
+        "{{ubicacion_adicional}}": f", específicamente en la ubicación de {employee.get('departamento')}" if employee.get("departamento") else "",
         
         # Mappings from original templates
         "DIEGO ALEXANDER HERNANDEZ MEBREÑO": employee.get("nombre") or "",
