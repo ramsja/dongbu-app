@@ -382,6 +382,57 @@ def init_db():
         except sqlite3.IntegrityError:
             pass
 
+    # Seed initial registros (incapacidades y vacaciones) if table is empty
+    cur.execute("SELECT COUNT(*) AS c FROM registros")
+    if cur.fetchone()["c"] == 0:
+        registros_json_path = os.path.join(os.path.dirname(__file__), "seed_registros.json")
+        if os.path.exists(registros_json_path):
+            try:
+                import json
+                with open(registros_json_path, "r", encoding="utf-8") as f:
+                    regs = json.load(f)
+                
+                imported_regs = 0
+                for r in regs:
+                    dui = r.get("dui")
+                    tipo = r.get("tipo")
+                    fi = r.get("fecha_inicio")
+                    ff = r.get("fecha_fin")
+                    dias = r.get("dias")
+                    foto = r.get("foto_path")
+                    obs = r.get("observaciones")
+                    fecha_reg = r.get("fecha_registro")
+                    estado = r.get("estado", "aprobado").lower()
+                    
+                    # Resolve employee code from DUI
+                    cur.execute("SELECT codigo FROM empleados WHERE dui = ?", (dui,))
+                    emp_row = cur.fetchone()
+                    if emp_row:
+                        codigo = emp_row["codigo"]
+                    else:
+                        # Try matching by name
+                        name = r.get("nombre")
+                        if name:
+                            cur.execute("SELECT codigo FROM empleados WHERE UPPER(nombre) = ?", (name.upper().strip(),))
+                            emp_row = cur.fetchone()
+                            if emp_row:
+                                codigo = emp_row["codigo"]
+                            else:
+                                continue
+                        else:
+                            continue
+                            
+                    cur.execute(
+                        """INSERT INTO registros (codigo_empleado, tipo, fecha_inicio, fecha_fin, dias, foto_path, observaciones, fecha_registro, estado)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        (codigo, tipo, fi, ff, dias, foto, obs, fecha_reg, estado)
+                    )
+                    imported_regs += 1
+                conn.commit()
+                print(f"[init_db] {imported_regs} registros de incapacidades y vacaciones cargados.")
+            except Exception as e:
+                print(f"[init_db] Error seeding registros: {e}")
+
     # Seed initial templates
     TEMPLATES_DIR = os.path.join(os.path.dirname(DB_PATH), "..", "app", "uploads", "templates")
     seed_root = os.path.join(os.path.dirname(__file__), "seed_templates")
