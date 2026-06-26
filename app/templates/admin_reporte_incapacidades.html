@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% block title %}Reporte de Incapacidades - Dongbu{% endblock %}
+{% block content %}
+
+<div class="row g-4 mb-4">
+  <div class="col-12">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+      <h2 class="dongbu-title m-0"><i class="fa-solid fa-hospital me-2"></i>Reporte de Incapacidades</h2>
+      <div class="d-flex gap-2 flex-wrap">
+        <a href="{{ url_for('admin_reporte_incapacidades_export', estado=filtros.estado, desde=filtros.desde, hasta=filtros.hasta, q=filtros.q) }}"
+           class="btn btn-success btn-sm fw-semibold">
+          <i class="fa-solid fa-file-csv me-1"></i>Exportar CSV
+        </a>
+        <button class="btn btn-outline-primary btn-sm fw-semibold" type="button"
+                data-bs-toggle="collapse" data-bs-target="#importPanel">
+          <i class="fa-solid fa-file-excel me-1"></i>Importar Excel SharePoint
+        </button>
+        <form action="{{ url_for('admin_sync_sharepoint_incapacidades') }}" method="POST" class="d-inline">
+          <button type="submit" class="btn btn-outline-info btn-sm fw-semibold"
+                  title="Sync directo si SP_INCAPACIDADES_URL está configurada en Render">
+            <i class="fa-solid fa-cloud-arrow-down me-1"></i>Sync SP
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Panel importación Excel SharePoint -->
+<div class="collapse mb-3" id="importPanel">
+  <div class="card border-0 shadow-sm">
+    <div class="card-body">
+      <h6 class="fw-bold mb-1"><i class="fa-brands fa-microsoft me-1 text-primary"></i>Importar desde Excel de SharePoint</h6>
+      <p class="text-muted small mb-3">
+        Descarga el Excel de incapacidades de SharePoint y súbelo aquí para insertar o actualizar registros.<br>
+        Columnas detectadas automáticamente: <code>DUI · Codigo · Fecha Inicio · Fecha Fin · Dias · Observaciones · Estado</code>
+      </p>
+      <form action="{{ url_for('admin_importar_excel_incapacidades') }}" method="POST"
+            enctype="multipart/form-data" class="d-flex gap-2 align-items-center flex-wrap">
+        <input type="file" name="archivo" accept=".xlsx,.xls"
+               class="form-control form-control-sm" style="max-width:300px;" required>
+        <button type="submit" class="btn btn-primary btn-sm fw-semibold">
+          <i class="fa-solid fa-upload me-1"></i>Cargar y Actualizar
+        </button>
+      </form>
+      <div class="mt-2 text-muted" style="font-size:0.75rem;">
+        <i class="fa-solid fa-circle-info me-1"></i>
+        Sync automático futuro: configura <code>SP_INCAPACIDADES_URL</code> en las env vars de Render.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tarjetas de Estadísticas -->
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="card stat-card shadow-sm border-0 border-start border-4 border-primary">
+      <div class="card-body">
+        <div class="text-muted small fw-semibold">Total Registros</div>
+        <div class="fs-3 fw-bold text-primary">{{ stats.total }}</div>
+        <div class="text-muted small">Incapacidades ingresadas</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card stat-card shadow-sm border-0 border-start border-4 border-warning">
+      <div class="card-body">
+        <div class="text-muted small fw-semibold">Pendientes</div>
+        <div class="fs-3 fw-bold text-warning">{{ stats.pendientes }}</div>
+        <div class="text-muted small">Por aprobar o rechazar</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card stat-card shadow-sm border-0 border-start border-4 border-success">
+      <div class="card-body">
+        <div class="text-muted small fw-semibold">Aprobadas</div>
+        <div class="fs-3 fw-bold text-success">{{ stats.aprobadas }}</div>
+        <div class="text-muted small">{{ stats.dias_aprobados }} días acumulados</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card stat-card shadow-sm border-0 border-start border-4 border-danger">
+      <div class="card-body">
+        <div class="text-muted small fw-semibold">Total Días (todos)</div>
+        <div class="fs-3 fw-bold text-danger">{{ stats.total_dias }}</div>
+        <div class="text-muted small">{{ stats.rechazadas }} rechazadas</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Filtros -->
+<div class="card shadow-sm mb-4 border-0">
+  <div class="card-body">
+    <form method="GET" action="{{ url_for('admin_reporte_incapacidades') }}" class="row g-2 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label small fw-semibold text-secondary">Buscar Empleado</label>
+        <input type="text" name="q" value="{{ filtros.q }}" class="form-control form-control-sm" placeholder="Nombre, DUI o Código">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small fw-semibold text-secondary">Estado</label>
+        <select name="estado" class="form-select form-select-sm">
+          <option value="">Todos</option>
+          <option value="pendiente"  {% if filtros.estado=='pendiente'  %}selected{% endif %}>Pendiente</option>
+          <option value="aprobado"   {% if filtros.estado=='aprobado'   %}selected{% endif %}>Aprobado</option>
+          <option value="rechazado"  {% if filtros.estado=='rechazado'  %}selected{% endif %}>Rechazado</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small fw-semibold text-secondary">Desde</label>
+        <input type="date" name="desde" value="{{ filtros.desde }}" class="form-control form-control-sm">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small fw-semibold text-secondary">Hasta</label>
+        <input type="date" name="hasta" value="{{ filtros.hasta }}" class="form-control form-control-sm">
+      </div>
+      <div class="col-md-3 d-flex gap-2">
+        <button class="btn btn-sm btn-primary w-100 fw-semibold" type="submit">
+          <i class="fa-solid fa-filter me-1"></i>Filtrar
+        </button>
+        <a href="{{ url_for('admin_reporte_incapacidades') }}" class="btn btn-sm btn-outline-secondary w-100 fw-semibold">
+          <i class="fa-solid fa-arrows-rotate me-1"></i>Limpiar
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Tabla -->
+<div class="card shadow-sm border-0">
+  <div class="card-header dongbu-card-header">
+    <i class="fa-solid fa-list-check me-2"></i>Registros de Incapacidades
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-striped table-hover align-middle mb-0">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Empleado</th>
+            <th>Departamento</th>
+            <th>Fecha Inicio</th>
+            <th>Fecha Fin</th>
+            <th class="text-center">Días</th>
+            <th>Observaciones</th>
+            <th>Estado</th>
+            <th class="text-center">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in registros %}
+          <tr>
+            <td class="text-muted small fw-semibold">{{ r.id }}</td>
+            <td>
+              <div class="fw-bold">{{ r.nombre }}</div>
+              <div class="text-muted small">{{ r.cargo or 'Sin puesto' }}</div>
+            </td>
+            <td><span class="badge bg-light text-dark border">{{ r.departamento or 'General' }}</span></td>
+            <td>{{ r.fecha_inicio }}</td>
+            <td>{{ r.fecha_fin or '—' }}</td>
+            <td class="text-center fw-bold">{{ r.dias }}</td>
+            <td class="small text-muted" style="max-width:180px;white-space:normal;">{{ r.observaciones or '—' }}</td>
+            <td>
+              {% if r.estado == 'aprobado' %}
+                <span class="badge bg-success">Aprobado</span>
+              {% elif r.estado == 'rechazado' %}
+                <span class="badge bg-danger">Rechazado</span>
+              {% else %}
+                <span class="badge bg-warning text-dark">Pendiente</span>
+              {% endif %}
+            </td>
+            <td class="text-center">
+              <div class="d-flex gap-1 justify-content-center">
+                <form action="{{ url_for('admin_approve_registro', id=r.id) }}" method="POST">
+                  <button type="submit" class="btn btn-outline-success btn-sm py-0 px-2" title="Aprobar">
+                    <i class="fa-solid fa-check"></i>
+                  </button>
+                </form>
+                <form action="{{ url_for('admin_reject_registro', id=r.id) }}" method="POST">
+                  <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2" title="Rechazar">
+                    <i class="fa-solid fa-xmark"></i>
+                  </button>
+                </form>
+                {% if r.foto_path %}
+                <a href="{{ url_for('admin_foto', filename=r.foto_path) }}" target="_blank"
+                   class="btn btn-outline-secondary btn-sm py-0 px-2" title="Ver constancia">
+                  <i class="fa-solid fa-file-image"></i>
+                </a>
+                {% endif %}
+                <form action="{{ url_for('admin_delete_registro', id=r.id) }}" method="POST"
+                      onsubmit="return confirm('¿Eliminar este registro?');">
+                  <button type="submit" class="btn btn-outline-dark btn-sm py-0 px-2" title="Eliminar">
+                    <i class="fa-solid fa-trash"></i>
+                  </button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="9" class="text-center text-muted py-5">
+              <i class="fa-solid fa-hospital fa-2x mb-2 d-block opacity-25"></i>
+              No se encontraron registros de incapacidades.<br>
+              <small>Importa el Excel de SharePoint o registra una desde el portal del empleado.</small>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

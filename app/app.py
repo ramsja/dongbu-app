@@ -1560,7 +1560,8 @@ def admin_reporte_vacaciones_export():
 # Cuando se configure el link público de SharePoint, activar sync_directo.
 # ===========================================================================
 
-SHAREPOINT_VAC_URL = os.environ.get("SP_VACACIONES_URL", "")  # puente: llenar en env vars de Render
+SHAREPOINT_VAC_URL = os.environ.get("SP_VACACIONES_URL", "")   # puente vacaciones
+SHAREPOINT_INC_URL = os.environ.get("SP_INCAPACIDADES_URL", "")  # puente incapacidades
 
 
 @app.route("/admin/reporte-vacaciones/importar-excel", methods=["POST"])
@@ -1691,6 +1692,239 @@ def admin_sync_sharepoint_vacaciones():
     except Exception as e:
         flash(f"Error al conectar con SharePoint: {e}", "error")
         return redirect(url_for("admin_reporte_vacaciones"))
+
+
+# ===========================================================================
+# REPORTE DE INCAPACIDADES
+# ===========================================================================
+
+@app.route("/admin/reporte-incapacidades")
+@login_required
+def admin_reporte_incapacidades():
+    estado_f = request.args.get("estado", "").strip()
+    desde    = request.args.get("desde", "").strip()
+    hasta    = request.args.get("hasta", "").strip()
+    q        = request.args.get("q", "").strip()
+
+    query = """
+        SELECT r.id, r.codigo_empleado, e.nombre, e.cargo, e.departamento,
+               r.fecha_inicio, r.fecha_fin, r.dias, r.observaciones,
+               r.fecha_registro, r.estado, r.foto_path
+        FROM registros r
+        JOIN empleados e ON e.codigo = r.codigo_empleado
+        WHERE r.tipo = 'incapacidad'
+    """
+    params = []
+    if estado_f:
+        query += " AND r.estado = ?"
+        params.append(estado_f)
+    if desde:
+        query += " AND r.fecha_inicio >= ?"
+        params.append(desde)
+    if hasta:
+        query += " AND r.fecha_inicio <= ?"
+        params.append(hasta)
+    if q:
+        query += " AND (e.nombre LIKE ? OR e.dui LIKE ? OR r.codigo_empleado LIKE ?)"
+        params += [f"%{q}%", f"%{q}%", f"%{q}%"]
+    query += " ORDER BY r.fecha_registro DESC"
+
+    db = get_db()
+    registros = [dict(r) for r in db.execute(query, params).fetchall()]
+
+    stats = db.execute("""
+        SELECT
+            COUNT(*) total,
+            COALESCE(SUM(dias), 0) total_dias,
+            SUM(CASE WHEN estado='pendiente'  THEN 1 ELSE 0 END) pendientes,
+            SUM(CASE WHEN estado='aprobado'   THEN 1 ELSE 0 END) aprobadas,
+            SUM(CASE WHEN estado='rechazado'  THEN 1 ELSE 0 END) rechazadas,
+            SUM(CASE WHEN estado='aprobado'   THEN dias ELSE 0 END) dias_aprobados
+        FROM registros WHERE tipo='incapacidad'
+    """).fetchone()
+    db.close()
+
+    filtros = {"estado": estado_f, "desde": desde, "hasta": hasta, "q": q}
+    return render_template("admin_reporte_incapacidades.html",
+                           registros=registros, stats=dict(stats),
+                           filtros=filtros)
+
+
+@app.route("/admin/reporte-incapacidades/importar-excel", methods=["POST"])
+@login_required
+def admin_importar_excel_incapacidades():
+    """
+    Importa registros de incapacidades desde el Excel de SharePoint.
+    Cruza por DUI/código para insertar o actualizar registros en la tabla 'registros'.
+    Columnas esperadas: DUI | Nombre | Fecha Inicio | Fecha Fin | Dias | Observaciones | Estado
+    """
+    import openpyxl, io as _io
+
+    archivo = request.files.get("archivo")
+    if not archivo or not archivo.filename.endswith((".xlsx", ".xls")):
+        flash("Selecciona un archivo Excel (.xlsx / .xls).", "error")
+        return redirect(url_for("admin_reporte_incapacidades"))
+
+    try:
+        wb = openpyxl.load_workbook(_io.BytesIO(archivo.read()), data_only=True)
+        ws = wb.active
+        rows = list(ws.iter_rows(values_only=True))
+        if not rows:
+            flash("El archivo está vacío.", "error")
+            return redirect(url_for("admin_reporte_incapacidades"))
+
+        header = [str(c).strip().lower() if c else "" for c in rows[0]]
+
+        def col(aliases):
+            for alias in aliases:
+                for i, h in enumerate(header):
+                    if alias in h:
+                        return i
+            return None
+
+        i_dui   = col(["dui", "documento"])
+        i_cod   = col(["codigo", "cod"])
+        i_fi    = col(["inicio", "fecha_inicio", "fecha inicio"])
+        i_ff    = col(["fin", "fecha_fin", "fecha fin"])
+        i_dias  = col(["dias", "días"])
+        i_obs   = col(["observacion", "obs", "nota"])
+        i_est   = col(["estado"])
+
+        db = get_db()
+        inserted = updated = skipped = 0
+
+        for row in rows[1:]:
+            try:
+                dui  = str(row[i_dui]).strip() if i_dui is not None and row[i_dui] else ""
+                cod  = str(row[i_cod]).strip() if i_cod is not None and row[i_cod] else ""
+                fi   = str(row[i_fi]).strip()[:10] if i_fi is not None and row[i_fi] else None
+                ff   = str(row[i_ff]).strip()[:10] if i_ff is not None and row[i_ff] else fi
+                obs  = str(row[i_obs]).strip() if i_obs is not None and row[i_obs] else ""
+                est  = str(row[i_est]).strip().lower() if i_est is not None and row[i_est] else "pendiente"
+                if est not in ("pendiente", "aprobado", "rechazado"):
+                    est = "pendiente"
+                try:
+                    dias = int(float(row[i_dias])) if i_dias is not None and row[i_dias] else 0
+                except (TypeError, ValueError):
+                    dias = 0
+
+                if not fi or (not dui and not cod):
+                    skipped += 1
+                    continue
+
+                # Normalizar fecha DD/MM/YYYY → YYYY-MM-DD
+                for sep in ("/", "."):
+                    if sep in fi:
+                        p = fi.split(sep)
+                        if len(p) == 3 and len(p[2]) == 4:
+                            fi = f"{p[2]}-{p[1].zfill(2)}-{p[0].zfill(2)}"
+                        break
+
+                # Buscar empleado
+                emp_row = None
+                if dui:
+                    emp_row = db.execute("SELECT codigo FROM empleados WHERE dui = ?", (dui,)).fetchone()
+                if not emp_row and cod:
+                    emp_row = db.execute("SELECT codigo FROM empleados WHERE codigo = ?", (cod.zfill(4),)).fetchone()
+
+                if not emp_row:
+                    skipped += 1
+                    continue
+
+                codigo_emp = emp_row["codigo"]
+
+                # Calcular días si no vienen
+                if not dias and fi and ff:
+                    try:
+                        from datetime import date as _date
+                        d1 = datetime.strptime(fi, "%Y-%m-%d").date()
+                        d2 = datetime.strptime(ff, "%Y-%m-%d").date()
+                        dias = max(1, (d2 - d1).days + 1)
+                    except Exception:
+                        dias = 1
+
+                # Upsert: si ya existe mismo empleado + fecha_inicio → actualizar
+                existing = db.execute(
+                    "SELECT id FROM registros WHERE codigo_empleado=? AND tipo='incapacidad' AND fecha_inicio=?",
+                    (codigo_emp, fi)
+                ).fetchone()
+
+                if existing:
+                    db.execute(
+                        "UPDATE registros SET fecha_fin=?, dias=?, observaciones=?, estado=? WHERE id=?",
+                        (ff, dias, obs, est, existing["id"])
+                    )
+                    updated += 1
+                else:
+                    db.execute(
+                        """INSERT INTO registros
+                           (codigo_empleado, tipo, fecha_inicio, fecha_fin, dias,
+                            observaciones, fecha_registro, estado)
+                           VALUES (?,?,?,?,?,?,?,?)""",
+                        (codigo_emp, "incapacidad", fi, ff, dias, obs,
+                         datetime.now().isoformat(timespec="seconds"), est)
+                    )
+                    inserted += 1
+            except Exception:
+                skipped += 1
+
+        db.commit()
+        db.close()
+        flash(f"Excel importado: {inserted} nuevos, {updated} actualizados, {skipped} omitidos.", "ok")
+
+    except Exception as e:
+        flash(f"Error al procesar el Excel: {e}", "error")
+
+    return redirect(url_for("admin_reporte_incapacidades"))
+
+
+@app.route("/admin/reporte-incapacidades/sync-sharepoint", methods=["POST"])
+@login_required
+def admin_sync_sharepoint_incapacidades():
+    """Sync directo desde SharePoint cuando SP_INCAPACIDADES_URL esté configurada."""
+    if not SHAREPOINT_INC_URL:
+        flash("SP_INCAPACIDADES_URL no configurada. Sube el Excel manualmente por ahora.", "error")
+        return redirect(url_for("admin_reporte_incapacidades"))
+    try:
+        import requests as _req, io as _io
+        r = _req.get(SHAREPOINT_INC_URL.split("?")[0] + "?download=1", timeout=30)
+        r.raise_for_status()
+        from werkzeug.datastructures import FileStorage
+        request.files = {"archivo": FileStorage(stream=_io.BytesIO(r.content), filename="sharepoint.xlsx")}
+        return admin_importar_excel_incapacidades()
+    except Exception as e:
+        flash(f"Error al conectar con SharePoint: {e}", "error")
+        return redirect(url_for("admin_reporte_incapacidades"))
+
+
+@app.route("/admin/reporte-incapacidades/export")
+@login_required
+def admin_reporte_incapacidades_export():
+    import csv, io as _io
+    db = get_db()
+    rows = db.execute("""
+        SELECT r.id, r.codigo_empleado, e.nombre, e.cargo, e.departamento,
+               r.fecha_inicio, r.fecha_fin, r.dias, r.observaciones,
+               r.fecha_registro, r.estado
+        FROM registros r JOIN empleados e ON e.codigo = r.codigo_empleado
+        WHERE r.tipo = 'incapacidad' ORDER BY r.fecha_registro DESC
+    """).fetchall()
+    db.close()
+
+    output = _io.StringIO()
+    output.write("﻿")
+    writer = csv.writer(output)
+    writer.writerow(["Folio", "Código", "Nombre", "Cargo", "Departamento",
+                     "Fecha Inicio", "Fecha Fin", "Días", "Observaciones",
+                     "Fecha Registro", "Estado"])
+    for r in rows:
+        writer.writerow([r["id"], r["codigo_empleado"], r["nombre"], r["cargo"],
+                         r["departamento"] or "", r["fecha_inicio"], r["fecha_fin"],
+                         r["dias"], r["observaciones"] or "", r["fecha_registro"], r["estado"]])
+
+    filename = f"reporte_incapacidades_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    return Response(output.getvalue(), mimetype="text/csv",
+                    headers={"Content-Disposition": f"attachment; filename={filename}"})
 
 
 @app.errorhandler(404)
