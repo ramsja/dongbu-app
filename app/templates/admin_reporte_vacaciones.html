@@ -6,10 +6,42 @@
   <div class="col-12">
     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
       <h2 class="dongbu-title m-0"><i class="fa-solid fa-umbrella-beach me-2"></i>Reporte Proyectado de Vacaciones</h2>
-      <div class="d-flex gap-2">
+      <div class="d-flex gap-2 flex-wrap">
         <a href="{{ url_for('admin_reporte_vacaciones_export', departamento=filtros.departamento, mes=filtros.mes, q=filtros.q) }}" class="btn btn-success btn-sm fw-semibold">
           <i class="fa-solid fa-file-csv me-1"></i>Exportar CSV
         </a>
+        <button class="btn btn-outline-primary btn-sm fw-semibold" type="button" data-bs-toggle="collapse" data-bs-target="#importPanel">
+          <i class="fa-solid fa-file-excel me-1"></i>Importar Excel SharePoint
+        </button>
+        <form action="{{ url_for('admin_sync_sharepoint_vacaciones') }}" method="POST" class="d-inline">
+          <button type="submit" class="btn btn-outline-info btn-sm fw-semibold" title="Sync directo si SP_VACACIONES_URL está configurada en Render">
+            <i class="fa-solid fa-cloud-arrow-down me-1"></i>Sync SP
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Panel importación Excel SharePoint -->
+<div class="collapse mb-3" id="importPanel">
+  <div class="card border-0 shadow-sm">
+    <div class="card-body">
+      <h6 class="fw-bold mb-1"><i class="fa-brands fa-microsoft me-1 text-primary"></i>Importar desde Excel de SharePoint</h6>
+      <p class="text-muted small mb-3">
+        Descarga el Excel de SharePoint y súbelo aquí para actualizar <strong>días de vacaciones pendientes</strong>,
+        <strong>departamento</strong> y <strong>fecha de contratación</strong> de cada empleado.<br>
+        Columnas detectadas automáticamente: <code>DUI · Codigo · Departamento · Fecha Contratacion · Dias Pendientes · Salario</code>
+      </p>
+      <form action="{{ url_for('admin_importar_excel_vacaciones') }}" method="POST" enctype="multipart/form-data" class="d-flex gap-2 align-items-center flex-wrap">
+        <input type="file" name="archivo" accept=".xlsx,.xls" class="form-control form-control-sm" style="max-width:300px;" required>
+        <button type="submit" class="btn btn-primary btn-sm fw-semibold">
+          <i class="fa-solid fa-upload me-1"></i>Cargar y Actualizar
+        </button>
+      </form>
+      <div class="mt-2 text-muted" style="font-size:0.75rem;">
+        <i class="fa-solid fa-circle-info me-1"></i>
+        Sync automático futuro: configura <code>SP_VACACIONES_URL</code> en las env vars de Render con el link de descarga directo del Excel de SharePoint.
       </div>
     </div>
   </div>

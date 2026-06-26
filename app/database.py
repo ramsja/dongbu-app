@@ -9,6 +9,20 @@ DB_PATH = os.environ.get("DB_PATH", os.path.join(os.path.dirname(__file__), ".."
 SEED_CSV = os.path.join(os.path.dirname(__file__), "seed_empleados.csv")
 
 
+def _normalize_date(raw: str) -> str | None:
+    """Normaliza fechas DD/MM/YYYY o YYYY-MM-DD a YYYY-MM-DD."""
+    if not raw or raw in ("None", ""):
+        return None
+    raw = raw.strip()[:10]
+    if "/" in raw:
+        parts = raw.split("/")
+        if len(parts) == 3:
+            d, m, y = parts
+            if len(y) == 4:
+                return f"{y}-{m.zfill(2)}-{d.zfill(2)}"
+    return raw
+
+
 def get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -182,15 +196,15 @@ def init_db():
 
                     # ── Fecha ingreso ────────────────────────────────────────
                     ingreso_raw = emp.get("fecha_ingreso") or emp.get("hire_date")
-                    ingreso = str(ingreso_raw).strip()[:10] if ingreso_raw else None
+                    ingreso = _normalize_date(str(ingreso_raw).strip()) if ingreso_raw else None
 
                     # ── Fecha fin ────────────────────────────────────────────
                     fin_raw = emp.get("fecha_fin") or emp.get("end_date")
-                    fin = str(fin_raw).strip()[:10] if fin_raw else None
+                    fin = _normalize_date(str(fin_raw).strip()) if fin_raw else None
 
                     # ── Fecha contratación ───────────────────────────────────
                     contratacion_raw = emp.get("fecha_contratacion")
-                    contratacion = str(contratacion_raw).strip()[:10] if contratacion_raw else ingreso
+                    contratacion = _normalize_date(str(contratacion_raw).strip()) if contratacion_raw else ingreso
 
                     # ── Salario ──────────────────────────────────────────────
                     salario_raw = emp.get("salario_mensual") or emp.get("salary")

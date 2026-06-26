@@ -1409,12 +1409,17 @@ def admin_reporte_vacaciones():
         total_costo_proyectado += total_emp
         
         month_num = None
-        # Try to parse from fecha_ingreso
-        if emp["fecha_ingreso"]:
+        for fecha_field in (emp["fecha_contratacion"], emp["fecha_ingreso"]):
+            if not fecha_field:
+                continue
             try:
-                parts = emp["fecha_ingreso"].split("-")
-                if len(parts) >= 2:
-                    month_num = int(parts[1])
+                s = str(fecha_field).strip()
+                if "-" in s:           # YYYY-MM-DD
+                    month_num = int(s.split("-")[1])
+                elif "/" in s:         # DD/MM/YYYY
+                    month_num = int(s.split("/")[1])
+                if month_num:
+                    break
             except (ValueError, IndexError):
                 pass
         
@@ -1544,6 +1549,148 @@ def admin_reporte_vacaciones_export():
     response = Response(output.getvalue(), mimetype="text/csv")
     response.headers["Content-Disposition"] = f"attachment; filename={filename}"
     return response
+
+
+# ===========================================================================
+# IMPORTACIÓN EXCEL — PUENTE SHAREPOINT
+# Sube el Excel de SharePoint para actualizar departamento,
+# fecha_contratacion y dias_vacacion_pendientes de cada empleado.
+# Columnas esperadas: DUI | Nombre | Departamento | Fecha Contratacion |
+#                    Dias Pendientes | (Salario — opcional)
+# Cuando se configure el link público de SharePoint, activar sync_directo.
+# ===========================================================================
+
+SHAREPOINT_VAC_URL = os.environ.get("SP_VACACIONES_URL", "")  # puente: llenar en env vars de Render
+
+
+@app.route("/admin/reporte-vacaciones/importar-excel", methods=["POST"])
+@login_required
+def admin_importar_excel_vacaciones():
+    """Importa días pendientes y departamento desde el Excel de SharePoint."""
+    import openpyxl, io as _io
+
+    archivo = request.files.get("archivo")
+    if not archivo or not archivo.filename.endswith((".xlsx", ".xls")):
+        flash("Selecciona un archivo Excel (.xlsx / .xls).", "error")
+        return redirect(url_for("admin_reporte_vacaciones"))
+
+    try:
+        wb = openpyxl.load_workbook(_io.BytesIO(archivo.read()), data_only=True)
+        ws = wb.active
+        rows = list(ws.iter_rows(values_only=True))
+        if not rows:
+            flash("El archivo está vacío.", "error")
+            return redirect(url_for("admin_reporte_vacaciones"))
+
+        # Auto-detectar columnas por nombre
+        header = [str(c).strip().lower() if c else "" for c in rows[0]]
+
+        def col(aliases):
+            for alias in aliases:
+                for i, h in enumerate(header):
+                    if alias in h:
+                        return i
+            return None
+
+        i_dui   = col(["dui", "documento"])
+        i_cod   = col(["codigo", "cod"])
+        i_dep   = col(["departamento", "depto", "area"])
+        i_cont  = col(["contratacion", "contrato", "fecha_cont"])
+        i_dias  = col(["dias", "días", "vacacion", "pendiente"])
+        i_sal   = col(["salario", "sueldo"])
+
+        db = get_db()
+        updated = skipped = 0
+
+        for row in rows[1:]:
+            try:
+                dui   = str(row[i_dui]).strip()  if i_dui  is not None and row[i_dui]  else ""
+                cod   = str(row[i_cod]).strip()  if i_cod  is not None and row[i_cod]  else ""
+                dep   = str(row[i_dep]).strip()  if i_dep  is not None and row[i_dep]  else None
+                cont  = str(row[i_cont]).strip()[:10] if i_cont is not None and row[i_cont] else None
+                dias_raw = row[i_dias] if i_dias is not None else None
+                try:
+                    dias = float(dias_raw) if dias_raw not in (None, "") else None
+                except (TypeError, ValueError):
+                    dias = None
+
+                if not dui and not cod:
+                    skipped += 1
+                    continue
+
+                # Buscar empleado por DUI o código
+                emp_row = None
+                if dui:
+                    emp_row = db.execute("SELECT codigo FROM empleados WHERE dui = ?", (dui,)).fetchone()
+                if not emp_row and cod:
+                    emp_row = db.execute("SELECT codigo FROM empleados WHERE codigo = ?", (cod.zfill(4),)).fetchone()
+
+                if not emp_row:
+                    skipped += 1
+                    continue
+
+                # Construir UPDATE dinámico solo con campos presentes
+                sets, params = [], []
+                if dep is not None:
+                    sets.append("departamento = ?"); params.append(dep)
+                if cont:
+                    sets.append("fecha_contratacion = ?"); params.append(cont)
+                if dias is not None:
+                    sets.append("dias_vacacion_pendientes = ?"); params.append(dias)
+                if i_sal is not None and row[i_sal] not in (None, ""):
+                    try:
+                        sal = float(str(row[i_sal]).replace("$", "").replace(",", "").strip())
+                        sets.append("salario_mensual = ?"); params.append(sal)
+                    except ValueError:
+                        pass
+
+                if sets:
+                    params.append(emp_row["codigo"])
+                    db.execute(f"UPDATE empleados SET {', '.join(sets)} WHERE codigo = ?", params)
+                    updated += 1
+                else:
+                    skipped += 1
+            except Exception:
+                skipped += 1
+
+        db.commit()
+        db.close()
+        flash(f"Excel importado: {updated} empleados actualizados, {skipped} omitidos.", "ok")
+
+    except Exception as e:
+        flash(f"Error al procesar el Excel: {e}", "error")
+
+    return redirect(url_for("admin_reporte_vacaciones"))
+
+
+@app.route("/admin/reporte-vacaciones/sync-sharepoint", methods=["POST"])
+@login_required
+def admin_sync_sharepoint_vacaciones():
+    """
+    Sync directo desde SharePoint cuando el link sea público.
+    Activar: llenar SP_VACACIONES_URL en las env vars de Render.
+    """
+    if not SHAREPOINT_VAC_URL:
+        flash("SP_VACACIONES_URL no configurada. Sube el Excel manualmente por ahora.", "error")
+        return redirect(url_for("admin_reporte_vacaciones"))
+
+    try:
+        import requests as _req, openpyxl, io as _io
+        dl_url = SHAREPOINT_VAC_URL
+        if "?" in dl_url:
+            dl_url = dl_url.split("?")[0] + "?download=1"
+        else:
+            dl_url += "?download=1"
+        r = _req.get(dl_url, timeout=30)
+        r.raise_for_status()
+        # Reutilizar la lógica de importación subiendo como archivo simulado
+        from werkzeug.datastructures import FileStorage
+        fake = FileStorage(stream=_io.BytesIO(r.content), filename="sharepoint.xlsx")
+        request.files = {"archivo": fake}   # inyectar para reutilizar la ruta
+        return admin_importar_excel_vacaciones()
+    except Exception as e:
+        flash(f"Error al conectar con SharePoint: {e}", "error")
+        return redirect(url_for("admin_reporte_vacaciones"))
 
 
 @app.errorhandler(404)
