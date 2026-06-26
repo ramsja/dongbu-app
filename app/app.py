@@ -1516,21 +1516,20 @@ def admin_reporte_vacaciones_export():
     db.close()
     
     output = io.StringIO()
-    output.write(u'\ufeff')
     writer = csv.writer(output)
-    
+
     writer.writerow([
-        "Código", "Nombre", "Departamento", "Cargo", "Fecha Ingreso", "Fecha Contratación",
-        "Salario Nominal ($)", "Prima Vacacional 30% ($)", "Días Vacación Pendientes", "Valor Días Pendientes ($)", "Total Proyección ($)"
+        "Codigo", "Nombre", "Departamento", "Cargo", "Fecha Ingreso", "Fecha Contratacion",
+        "Salario Nominal", "Prima Vacacional 30%", "Dias Vacacion Pendientes", "Valor Dias Pendientes", "Total Proyeccion"
     ])
-    
+
     for emp in empleados_raw:
         sal = emp["salario_mensual"] or 0.0
         dias_pend = emp["dias_vacacion_pendientes"] or 0.0
         prima = (sal / 30.0 * 15.0) * 0.30
         valor_dias = (sal / 30.0) * dias_pend
         total_emp = prima + valor_dias
-        
+
         writer.writerow([
             emp["codigo"],
             emp["nombre"],
@@ -1544,12 +1543,14 @@ def admin_reporte_vacaciones_export():
             f"{valor_dias:.2f}",
             f"{total_emp:.2f}"
         ])
-        
+
     filename = f"reporte_vacaciones_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-    response = Response(output.getvalue(), mimetype="text/csv")
+    response = Response(
+        "﻿" + output.getvalue(),
+        mimetype="text/csv; charset=utf-8"
+    )
     response.headers["Content-Disposition"] = f"attachment; filename={filename}"
     return response
-
 
 # ===========================================================================
 # IMPORTACIÓN EXCEL — PUENTE SHAREPOINT
@@ -1912,10 +1913,9 @@ def admin_reporte_incapacidades_export():
     db.close()
 
     output = _io.StringIO()
-    output.write("﻿")
     writer = csv.writer(output)
-    writer.writerow(["Folio", "Código", "Nombre", "Cargo", "Departamento",
-                     "Fecha Inicio", "Fecha Fin", "Días", "Observaciones",
+    writer.writerow(["Folio", "Codigo", "Nombre", "Cargo", "Departamento",
+                     "Fecha Inicio", "Fecha Fin", "Dias", "Observaciones",
                      "Fecha Registro", "Estado"])
     for r in rows:
         writer.writerow([r["id"], r["codigo_empleado"], r["nombre"], r["cargo"],
@@ -1923,8 +1923,11 @@ def admin_reporte_incapacidades_export():
                          r["dias"], r["observaciones"] or "", r["fecha_registro"], r["estado"]])
 
     filename = f"reporte_incapacidades_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-    return Response(output.getvalue(), mimetype="text/csv",
-                    headers={"Content-Disposition": f"attachment; filename={filename}"})
+    return Response(
+        "﻿" + output.getvalue(),
+        mimetype="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
 
 
 @app.errorhandler(404)
