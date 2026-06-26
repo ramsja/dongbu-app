@@ -1568,18 +1568,24 @@ SHAREPOINT_INC_URL = os.environ.get("SP_INCAPACIDADES_URL", "")  # puente incapa
 @app.route("/admin/reporte-vacaciones/importar-excel", methods=["POST"])
 @login_required
 def admin_importar_excel_vacaciones():
-    """Importa días pendientes y departamento desde el Excel de SharePoint."""
+    """Importa días pendientes y departamento desde el Excel/CSV de SharePoint."""
     import openpyxl, io as _io
 
     archivo = request.files.get("archivo")
-    if not archivo or not archivo.filename.endswith((".xlsx", ".xls")):
-        flash("Selecciona un archivo Excel (.xlsx / .xls).", "error")
+    if not archivo or not archivo.filename.lower().endswith((".xlsx", ".xls", ".csv")):
+        flash("Selecciona un archivo Excel (.xlsx / .xls) o CSV (.csv).", "error")
         return redirect(url_for("admin_reporte_vacaciones"))
 
     try:
-        wb = openpyxl.load_workbook(_io.BytesIO(archivo.read()), data_only=True)
-        ws = wb.active
-        rows = list(ws.iter_rows(values_only=True))
+        raw = archivo.read()
+        if archivo.filename.lower().endswith(".csv"):
+            text = raw.decode("utf-8-sig", errors="replace")
+            reader = csv.reader(_io.StringIO(text))
+            rows = [tuple(r) for r in reader]
+        else:
+            wb = openpyxl.load_workbook(_io.BytesIO(raw), data_only=True)
+            ws = wb.active
+            rows = list(ws.iter_rows(values_only=True))
         if not rows:
             flash("El archivo está vacío.", "error")
             return redirect(url_for("admin_reporte_vacaciones"))
@@ -1755,21 +1761,27 @@ def admin_reporte_incapacidades():
 @login_required
 def admin_importar_excel_incapacidades():
     """
-    Importa registros de incapacidades desde el Excel de SharePoint.
+    Importa registros de incapacidades desde el Excel/CSV de SharePoint.
     Cruza por DUI/código para insertar o actualizar registros en la tabla 'registros'.
     Columnas esperadas: DUI | Nombre | Fecha Inicio | Fecha Fin | Dias | Observaciones | Estado
     """
     import openpyxl, io as _io
 
     archivo = request.files.get("archivo")
-    if not archivo or not archivo.filename.endswith((".xlsx", ".xls")):
-        flash("Selecciona un archivo Excel (.xlsx / .xls).", "error")
+    if not archivo or not archivo.filename.lower().endswith((".xlsx", ".xls", ".csv")):
+        flash("Selecciona un archivo Excel (.xlsx / .xls) o CSV (.csv).", "error")
         return redirect(url_for("admin_reporte_incapacidades"))
 
     try:
-        wb = openpyxl.load_workbook(_io.BytesIO(archivo.read()), data_only=True)
-        ws = wb.active
-        rows = list(ws.iter_rows(values_only=True))
+        raw = archivo.read()
+        if archivo.filename.lower().endswith(".csv"):
+            text = raw.decode("utf-8-sig", errors="replace")
+            reader = csv.reader(_io.StringIO(text))
+            rows = [tuple(r) for r in reader]
+        else:
+            wb = openpyxl.load_workbook(_io.BytesIO(raw), data_only=True)
+            ws = wb.active
+            rows = list(ws.iter_rows(values_only=True))
         if not rows:
             flash("El archivo está vacío.", "error")
             return redirect(url_for("admin_reporte_incapacidades"))
