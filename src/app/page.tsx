@@ -459,9 +459,26 @@ export default function Home() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [loading, setLoading] = useState(false)
 
+  const fetchContratos = async () => {
+    try {
+      const r = await fetch('/api/contratos')
+      const d = await r.json()
+      setContratos(Array.isArray(d) ? d : [])
+    } catch { setContratos([]) }
+  }
+
+  const fetchFiniquitos = async () => {
+    try {
+      const r = await fetch('/api/finiquitos')
+      const d = await r.json()
+      setFiniquitos(Array.isArray(d) ? d : [])
+    } catch { setFiniquitos([]) }
+  }
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
-    fetch('/api/contratos').then(r => r.json()).then(d => setContratos(d)).catch(() => {})
-    fetch('/api/finiquitos').then(r => r.json()).then(d => setFiniquitos(d)).catch(() => {})
+    fetchContratos()
+    fetchFiniquitos()
   }, [])
 
   const saveContrato = async (data: ContratoData) => {

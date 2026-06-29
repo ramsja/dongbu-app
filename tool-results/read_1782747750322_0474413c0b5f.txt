@@ -1,0 +1,704 @@
+     1→     1→'use client'
+     2→     2→
+     3→     3→import { useState, useEffect } from 'react'
+     4→     4→import {
+     5→     5→  Card, CardContent, CardDescription, CardHeader, CardTitle,
+     6→     6→} from '@/components/ui/card'
+     7→     7→import { Button } from '@/components/ui/button'
+     8→     8→import { Badge } from '@/components/ui/badge'
+     9→     9→import { Input } from '@/components/ui/input'
+    10→    10→import { Label } from '@/components/ui/label'
+    11→    11→import { Textarea } from '@/components/ui/textarea'
+    12→    12→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    13→    13→import {
+    14→    14→  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
+    15→    15→} from '@/components/ui/dialog'
+    16→    16→import {
+    17→    17→  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+    18→    18→} from '@/components/ui/select'
+    19→    19→import {
+    20→    20→  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+    21→    21→} from '@/components/ui/table'
+    22→    22→import {
+    23→    23→  FileText, Plus, Trash2, Save, Edit3, Eye, Users, ChevronDown, ChevronUp,
+    24→    24→  UserPlus, Briefcase, ScrollText, Activity, RefreshCw, CheckCircle2, XCircle, Zap,
+    25→    25→  AlertTriangle, Rocket, Shield, Clock, Timer, DollarSign, Globe, ExternalLink, Server
+    26→    26→} from 'lucide-react'
+    27→    27→import { toast } from 'sonner'
+    28→    28→
+    29→    29→// ============ TYPES ============
+    30→    30→interface Dependiente {
+    31→    31→  nombre: string
+    32→    32→  parentesco: string
+    33→    33→  contacto: string
+    34→    34→}
+    35→    35→
+    36→    36→interface ContratoData {
+    37→    37→  id?: number
+    38→    38→  nombreTrabajador: string
+    39→    39→  dui: string
+    40→    40→  edad: string
+    41→    41→  sexo: string
+    42→    42→  estadoCivil: string
+    43→    43→  profesion: string
+    44→    44→  domicilio: string
+    45→    45→  residencia: string
+    46→    46→  nacionalidad: string
+    47→    47→  documentoIdentidad: string
+    48→    48→  expedidoEn: string
+    49→    49→  fechaExpedicion: string
+    50→    50→  posicion: string
+    51→    51→  proyecto: string
+    52→    52→  salario: string
+    53→    53→  salarioTexto: string
+    54→    54→  duracion: string
+    55→    55→  fechaInicio: string
+    56→    56→  jornadaLunesViernes: string
+    57→    57→  jornadaSabado: string
+    58→    58→  nombreEmpresa: string
+    59→    59→  apoderado: string
+    60→    60→  dependientes: string
+    61→    61→  estado: string
+    62→    62→}
+    63→    63→
+    64→    64→interface FiniquitoData {
+    65→    65→  id?: number
+    66→    66→  nombreTrabajador: string
+    67→    67→  dui: string
+    68→    68→  edad: string
+    69→    69→  profesion: string
+    70→    70→  nacionalidad: string
+    71→    71→  domicilio: string
+    72→    72→  posicion: string
+    73→    73→  nombreEmpresa: string
+    74→    74→  nit: string
+    75→    75→  fechaInicio: string
+    76→    76→  fechaFin: string
+    77→    77→  montoIndemnizacion: string
+    78→    78→  montoIndemnizacionTexto: string
+    79→    79→  montoVacacion: string
+    80→    80→  montoVacacionTexto: string
+    81→    81→  montoAguinaldo: string
+    82→    82→  montoAguinaldoTexto: string
+    83→    83→  montoTotal: string
+    84→    84→  testigo1Nombre: string
+    85→    85→  testigo1Dui: string
+    86→    86→  testigo1Edad: string
+    87→    87→  testigo1Profesion: string
+    88→    88→  testigo1Domicilio: string
+    89→    89→  testigo2Nombre: string
+    90→    90→  testigo2Dui: string
+    91→    91→  testigo2Edad: string
+    92→    92→  testigo2Profesion: string
+    93→    93→  testigo2Domicilio: string
+    94→    94→  notarioNombre: string
+    95→    95→  notarioDomicilio: string
+    96→    96→  lugarFecha: string
+    97→    97→  hora: string
+    98→    98→  estado: string
+    99→    99→}
+   100→   100→
+   101→   101→// ============ EMPTY FORMS ============
+   102→   102→const emptyContrato: ContratoData = {
+   103→   103→  nombreTrabajador: '', dui: '', edad: '', sexo: 'Masculino', estadoCivil: 'Soltero',
+   104→   104→  profesion: 'Empleado', domicilio: '', residencia: '', nacionalidad: 'salvadoreña',
+   105→   105→  documentoIdentidad: '', expedidoEn: '', fechaExpedicion: '',
+   106→   106→  posicion: '', proyecto: '', salario: '', salarioTexto: '',
+   107→   107→  duracion: '1 año', fechaInicio: '',
+   108→   108→  jornadaLunesViernes: '7:00 a.m. a 12:00 p.m. y de 1:00 p.m. a 3:00 p.m.',
+   109→   109→  jornadaSabado: '7:00 a.m. a 11:00 a.m.',
+   110→   110→  nombreEmpresa: 'DONGBU CORPORATION, SUCURSAL EL SALVADOR',
+   111→   111→  apoderado: 'JUHO IM', dependientes: '[]', estado: 'borrador',
+   112→   112→}
+   113→   113→
+   114→   114→const emptyFiniquito: FiniquitoData = {
+   115→   115→  nombreTrabajador: '', dui: '', edad: '', profesion: 'Empleado', nacionalidad: 'salvadoreña',
+   116→   116→  domicilio: '', posicion: '', nombreEmpresa: 'DONGBU CORPORATION, SUCURSAL EL SALVADOR',
+   117→   117→  nit: '9405-240169-101-2', fechaInicio: '', fechaFin: '',
+   118→   118→  montoIndemnizacion: '', montoIndemnizacionTexto: '', montoVacacion: '', montoVacacionTexto: '',
+   119→   119→  montoAguinaldo: '', montoAguinaldoTexto: '', montoTotal: '',
+   120→   120→  testigo1Nombre: '', testigo1Dui: '', testigo1Edad: '', testigo1Profesion: '', testigo1Domicilio: '',
+   121→   121→  testigo2Nombre: '', testigo2Dui: '', testigo2Edad: '', testigo2Profesion: '', testigo2Domicilio: '',
+   122→   122→  notarioNombre: '', notarioDomicilio: '', lugarFecha: '', hora: '', estado: 'borrador',
+   123→   123→}
+   124→   124→
+   125→   125→// ============ FIELD COMPONENT ============
+   126→   126→function Field({ label, children }: { label: string; children: React.ReactNode }) {
+   127→   127→  return (
+   128→   128→    <div className="space-y-1.5">
+   129→   129→      <Label className="text-xs font-medium text-muted-foreground">{label}</Label>
+   130→   130→      {children}
+   131→   131→    </div>
+   132→   132→  )
+   133→   133→}
+   134→   134→
+   135→   135→function FieldInput({ value, onChange, placeholder, type = 'text' }: {
+   136→   136→  value: string; onChange: (v: string) => void; placeholder?: string; type?: string
+   137→   137→}) {
+   138→   138→  return (
+   139→   139→    <Input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} type={type}
+   140→   140→      className="text-sm h-9" />
+   141→   141→  )
+   142→   142→}
+   143→   143→
+   144→   144→// ============ CONTRATO FORM ============
+   145→   145→function ContratoForm({ initial, onSave, onCancel }: {
+   146→   146→  initial?: ContratoData; onSave: (data: ContratoData) => void; onCancel: () => void
+   147→   147→}) {
+   148→   148→  const [form, setForm] = useState<ContratoData>(initial || { ...emptyContrato })
+   149→   149→  const [deps, setDeps] = useState<Dependiente[]>(
+   150→   150→    initial ? JSON.parse(initial.dependientes || '[]') : []
+   151→   151→  )
+   152→   152→
+   153→   153→  const set = (field: keyof ContratoData, value: string) => setForm(prev => ({ ...prev, [field]: value }))
+   154→   154→
+   155→   155→  const addDep = () => setDeps(prev => [...prev, { nombre: '', parentesco: '', contacto: '' }])
+   156→   156→  const removeDep = (i: number) => setDeps(prev => prev.filter((_, idx) => idx !== i))
+   157→   157→  const updateDep = (i: number, field: keyof Dependiente, value: string) =>
+   158→   158→    setDeps(prev => prev.map((d, idx) => idx === i ? { ...d, [field]: value } : d))
+   159→   159→
+   160→   160→  const handleSave = () => {
+   161→   161→    if (!form.nombreTrabajador.trim() || !form.dui.trim()) {
+   162→   162→      toast.error('Nombre y DUI son obligatorios')
+   163→   163→      return
+   164→   164→    }
+   165→   165→    onSave({ ...form, dependientes: JSON.stringify(deps) })
+   166→   166→  }
+   167→   167→
+   168→   168→  return (
+   169→   169→    <div className="space-y-6">
+   170→   170→      {/* Datos Trabajador */}
+   171→   171→      <div>
+   172→   172→        <h3 className="text-sm font-semibold mb-3 flex items-center gap-2"><Users className="h-4 w-4" /> Datos del Trabajador</h3>
+   173→   173→        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+   174→   174→          <Field label="Nombre Completo *">
+   175→   175→            <FieldInput value={form.nombreTrabajador} onChange={v => set('nombreTrabajador', v)} placeholder="Ej: Efrain Henríquez Abarca" />
+   176→   176→          </Field>
+   177→   177→          <Field label="DUI *">
+   178→   178→            <FieldInput value={form.dui} onChange={v => set('dui', v)} placeholder="Ej: 04767245-8" />
+   179→   179→          </Field>
+   180→   180→          <Field label="Edad">
+   181→   181→            <FieldInput value={form.edad} onChange={v => set('edad', v)} placeholder="Ej: 54" type="number" />
+   182→   182→          </Field>
+   183→   183→          <Field label="Sexo">
+   184→   184→            <Select value={form.sexo} onValueChange={v => set('sexo', v)}>
+   185→   185→              <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+   186→   186→              <SelectContent><SelectItem value="Masculino">Masculino</SelectItem><SelectItem value="Femenino">Femenino</SelectItem></SelectContent>
+   187→   187→            </Select>
+   188→   188→          </Field>
+   189→   189→          <Field label="Estado Civil">
+   190→   190→            <Select value={form.estadoCivil} onValueChange={v => set('estadoCivil', v)}>
+   191→   191→              <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+   192→   192→              <SelectContent>
+   193→   193→                <SelectItem value="Soltero">Soltero</SelectItem><SelectItem value="Casado">Casado</SelectItem>
+   194→   194→                <SelectItem value="Divorciado">Divorciado</SelectItem><SelectItem value="Viudo">Viudo</SelectItem>
+   195→   195→                <SelectItem value="Union Libre">Unión Libre</SelectItem>
+   196→   196→              </SelectContent>
+   197→   197→            </Select>
+   198→   198→          </Field>
+   199→   199→          <Field label="Profesión">
+   200→   200→            <FieldInput value={form.profesion} onChange={v => set('profesion', v)} placeholder="Ej: Empleado" />
+   201→   201→          </Field>
+   202→   202→          <Field label="Domicilio">
+   203→   203→            <FieldInput value={form.domicilio} onChange={v => set('domicilio', v)} placeholder="Ej: Ciudad Arce, La Libertad" />
+   204→   204→          </Field>
+   205→   205→          <Field label="Residencia">
+   206→   206→            <FieldInput value={form.residencia} onChange={v => set('residencia', v)} placeholder="Ej: Ciudad Arce, La Libertad" />
+   207→   207→          </Field>
+   208→   208→          <Field label="Nacionalidad">
+   209→   209→            <FieldInput value={form.nacionalidad} onChange={v => set('nacionalidad', v)} />
+   210→   210→          </Field>
+   211→   211→          <Field label="Documento de Identidad">
+   212→   212→            <FieldInput value={form.documentoIdentidad} onChange={v => set('documentoIdentidad', v)} placeholder="DUI o Pasaporte" />
+   213→   213→          </Field>
+   214→   214→          <Field label="Expedido en">
+   215→   215→            <FieldInput value={form.expedidoEn} onChange={v => set('expedidoEn', v)} placeholder="Ej: Santa Tecla, La Libertad" />
+   216→   216→          </Field>
+   217→   217→          <Field label="Fecha de Expedición">
+   218→   218→            <FieldInput value={form.fechaExpedicion} onChange={v => set('fechaExpedicion', v)} placeholder="Ej: 14 de enero de 2025" />
+   219→   219→          </Field>
+   220→   220→        </div>
+   221→   221→      </div>
+   222→   222→
+   223→   223→      {/* Datos Contrato */}
+   224→   224→      <div>
+   225→   225→        <h3 className="text-sm font-semibold mb-3 flex items-center gap-2"><Briefcase className="h-4 w-4" /> Datos del Contrato</h3>
+   226→   226→        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+   227→   227→          <Field label="Posición *">
+   228→   228→            <FieldInput value={form.posicion} onChange={v => set('posicion', v)} placeholder="Ej: Auxiliar de Obra" />
+   229→   229→          </Field>
+   230→   230→          <Field label="Proyecto">
+   231→   231→            <Textarea value={form.proyecto} onChange={e => set('proyecto', e.target.value)} placeholder="Nombre del proyecto" rows={2} className="text-sm" />
+   232→   232→          </Field>
+   233→   233→          <Field label="Salario ($)">
+   234→   234→            <FieldInput value={form.salario} onChange={v => set('salario', v)} placeholder="Ej: 408.80" type="number" />
+   235→   235→          </Field>
+   236→   236→          <Field label="Salario en texto">
+   237→   237→            <FieldInput value={form.salarioTexto} onChange={v => set('salarioTexto', v)} placeholder="Ej: CUATROCIENTOS OCHO DOLARES..." />
+   238→   238→          </Field>
+   239→   239→          <Field label="Duración">
+   240→   240→            <FieldInput value={form.duracion} onChange={v => set('duracion', v)} placeholder="Ej: 1 año" />
+   241→   241→          </Field>
+   242→   242→          <Field label="Fecha de Inicio">
+   243→   243→            <FieldInput value={form.fechaInicio} onChange={v => set('fechaInicio', v)} placeholder="Ej: 2 de junio de 2026" />
+   244→   244→          </Field>
+   245→   245→          <Field label="Jornada Lun-Vie">
+   246→   246→            <FieldInput value={form.jornadaLunesViernes} onChange={v => set('jornadaLunesViernes', v)} />
+   247→   247→          </Field>
+   248→   248→          <Field label="Jornada Sábado">
+   249→   249→            <FieldInput value={form.jornadaSabado} onChange={v => set('jornadaSabado', v)} />
+   250→   250→          </Field>
+   251→   251→        </div>
+   252→   252→      </div>
+   253→   253→
+   254→   254→      {/* Datos Empresa */}
+   255→   255→      <div>
+   256→   256→        <h3 className="text-sm font-semibold mb-3 flex items-center gap-2"><Server className="h-4 w-4" /> Datos de la Empresa</h3>
+   257→   257→        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+   258→   258→          <Field label="Nombre de la Empresa">
+   259→   259→            <FieldInput value={form.nombreEmpresa} onChange={v => set('nombreEmpresa', v)} />
+   260→   260→          </Field>
+   261→   261→          <Field label="Apoderado">
+   262→   262→            <FieldInput value={form.apoderado} onChange={v => set('apoderado', v)} />
+   263→   263→          </Field>
+   264→   264→        </div>
+   265→   265→      </div>
+   266→   266→
+   267→   267→      {/* Dependientes */}
+   268→   268→      <div>
+   269→   269→        <div className="flex items-center justify-between mb-3">
+   270→   270→          <h3 className="text-sm font-semibold flex items-center gap-2">
+   271→   271→            <UserPlus className="h-4 w-4" /> X.- Personas que dependan económicamente
+   272→   272→          </h3>
+   273→   273→          <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs" onClick={addDep}>
+   274→   274→            <Plus className="h-3.5 w-3.5" /> Agregar
+   275→   275→          </Button>
+   276→   276→        </div>
+   277→   277→        {deps.length === 0 ? (
+   278→   278→          <p className="text-xs text-muted-foreground p-4 border border-dashed rounded-lg text-center">
+   279→   279→            Sin personas dependientes registradas. Haz clic en &quot;Agregar&quot; para añadir.
+   280→   280→          </p>
+   281→   281→        ) : (
+   282→   282→          <div className="space-y-2">
+   283→   283→            <div className="grid grid-cols-[1fr_120px_140px_40px] gap-2 text-xs font-medium text-muted-foreground px-1">
+   284→   284→              <span>Nombre</span><span>Parentesco</span><span>Número de contacto</span><span></span>
+   285→   285→            </div>
+   286→   286→            {deps.map((dep, i) => (
+   287→   287→              <div key={i} className="grid grid-cols-[1fr_120px_140px_40px] gap-2 items-center">
+   288→   288→                <Input value={dep.nombre} onChange={e => updateDep(i, 'nombre', e.target.value)} placeholder="Nombre completo" className="h-8 text-sm" />
+   289→   289→                <Input value={dep.parentesco} onChange={e => updateDep(i, 'parentesco', e.target.value)} placeholder="Madre" className="h-8 text-sm" />
+   290→   290→                <Input value={dep.contacto} onChange={e => updateDep(i, 'contacto', e.target.value)} placeholder="7809-9189" className="h-8 text-sm" />
+   291→   291→                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeDep(i)}>
+   292→   292→                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
+   293→   293→                </Button>
+   294→   294→              </div>
+   295→   295→            ))}
+   296→   296→          </div>
+   297→   297→        )}
+   298→   298→      </div>
+   299→   299→
+   300→   300→      {/* Actions */}
+   301→   301→      <div className="flex gap-2 pt-4 border-t">
+   302→   302→        <Button onClick={handleSave} className="gap-2"><Save className="h-4 w-4" /> Guardar</Button>
+   303→   303→        <Button variant="outline" onClick={onCancel}>Cancelar</Button>
+   304→   304→      </div>
+   305→   305→    </div>
+   306→   306→  )
+   307→   307→}
+   308→   308→
+   309→   309→// ============ FINIQUITO FORM ============
+   310→   310→function FiniquitoForm({ initial, onSave, onCancel }: {
+   311→   311→  initial?: FiniquitoData; onSave: (data: FiniquitoData) => void; onCancel: () => void
+   312→   312→}) {
+   313→   313→  const [form, setForm] = useState<FiniquitoData>(initial || { ...emptyFiniquito })
+   314→   314→  const set = (field: keyof FiniquitoData, value: string) => setForm(prev => ({ ...prev, [field]: value }))
+   315→   315→
+   316→   316→  const calcTotal = () => {
+   317→   317→    const i = parseFloat(form.montoIndemnizacion) || 0
+   318→   318→    const v = parseFloat(form.montoVacacion) || 0
+   319→   319→    const a = parseFloat(form.montoAguinaldo) || 0
+   320→   320→    set('montoTotal', (i + v + a).toFixed(2))
+   321→   321→  }
+   322→   322→
+   323→   323→  const handleSave = () => {
+   324→   324→    if (!form.nombreTrabajador.trim() || !form.dui.trim()) {
+   325→   325→      toast.error('Nombre y DUI son obligatorios')
+   326→   326→      return
+   327→   327→    }
+   328→   328→    onSave(form)
+   329→   329→  }
+   330→   330→
+   331→   331→  return (
+   332→   332→    <div className="space-y-6">
+   333→   333→      {/* Datos Trabajador */}
+   334→   334→      <div>
+   335→   335→        <h3 className="text-sm font-semibold mb-3 flex items-center gap-2"><Users className="h-4 w-4" /> Datos del Trabajador</h3>
+   336→   336→        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+   337→   337→          <Field label="Nombre Completo *">
+   338→   338→            <FieldInput value={form.nombreTrabajador} onChange={v => set('nombreTrabajador', v)} placeholder="Ej: Brayan Bladimir Aguirre Aguirre" />
+   339→   339→          </Field>
+   340→   340→          <Field label="DUI *">
+   341→   341→            <FieldInput value={form.dui} onChange={v => set('dui', v)} placeholder="Ej: 07694842-0" />
+   342→   342→          </Field>
+   343→   343→          <Field label="Edad">
+   344→   344→            <FieldInput value={form.edad} onChange={v => set('edad', v)} placeholder="Ej: 19" type="number" />
+   345→   345→          </Field>
+   346→   346→          <Field label="Profesión">
+   347→   347→            <FieldInput value={form.profesion} onChange={v => set('profesion', v)} />
+   348→   348→          </Field>
+   349→   349→          <Field label="Nacionalidad">
+   350→   350→            <FieldInput value={form.nacionalidad} onChange={v => set('nacionalidad', v)} />
+   351→   351→          </Field>
+   352→   352→          <Field label="Domicilio">
+   353→   353→            <FieldInput value={form.domicilio} onChange={v => set('domicilio', v)} placeholder="Ej: Distrito de Colón, La Libertad" />
+   354→   354→          </Field>
+   355→   355→        </div>
+   356→   356→      </div>
+   357→   357→
+   358→   358→      {/* Datos Laborales */}
+   359→   359→      <div>
+   360→   360→        <h3 className="text-sm font-semibold mb-3 flex items-center gap-2"><Briefcase className="h-4 w-4" /> Datos Laborales</h3>
+   361→   361→        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+   362→   362→          <Field label="Posición">
+   363→   363→            <FieldInput value={form.posicion} onChange={v => set('posicion', v)} placeholder="Ej: Auxiliar de Obra" />
+   364→   364→          </Field>
+   365→   365→          <Field label="Empresa">
+   366→   366→            <FieldInput value={form.nombreEmpresa} onChange={v => set('nombreEmpresa', v)} />
+   367→   367→          </Field>
+   368→   368→          <Field label="NIT">
+   369→   369→            <FieldInput value={form.nit} onChange={v => set('nit', v)} />
+   370→   370→          </Field>
+   371→   371→          <Field label="Fecha de Inicio">
+   372→   372→            <FieldInput value={form.fechaInicio} onChange={v => set('fechaInicio', v)} placeholder="Ej: 3 de noviembre de 2025" />
+   373→   373→          </Field>
+   374→   374→          <Field label="Fecha de Fin (terminación)">
+   375→   375→            <FieldInput value={form.fechaFin} onChange={v => set('fechaFin', v)} placeholder="Ej: 12 de junio de 2026" />
+   376→   376→          </Field>
+   377→   377→        </div>
+   378→   378→      </div>
+   379→   379→
+   380→   380→      {/* Montos */}
+   381→   381→      <div>
+   382→   382→        <h3 className="text-sm font-semibold mb-3 flex items-center gap-2"><DollarSign className="h-4 w-4" /> Montos</h3>
+   383→   383→        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+   384→   384→          <Field label="Indemnización ($)">
+   385→   385→            <FieldInput value={form.montoIndemnizacion} onChange={v => { set('montoIndemnizacion', v); setTimeout(calcTotal, 0) }} placeholder="248.64" type="number" />
+   386→   386→          </Field>
+   387→   387→          <Field label="Indemnización (texto)">
+   388→   388→            <FieldInput value={form.montoIndemnizacionTexto} onChange={v => set('montoIndemnizacionTexto', v)} placeholder="DOSCIENTOS CUARENTA Y OCHO..." />
+   389→   389→          </Field>
+   390→   390→          <Field label="Vacación Proporcional ($)">
+   391→   391→            <FieldInput value={form.montoVacacion} onChange={v => { set('montoVacacion', v); setTimeout(calcTotal, 0) }} placeholder="161.62" type="number" />
+   392→   392→          </Field>
+   393→   393→          <Field label="Vacación Proporcional (texto)">
+   394→   394→            <FieldInput value={form.montoVacacionTexto} onChange={v => set('montoVacacionTexto', v)} />
+   395→   395→          </Field>
+   396→   396→          <Field label="Aguinaldo Proporcional ($)">
+   397→   397→            <FieldInput value={form.montoAguinaldo} onChange={v => { set('montoAguinaldo', v); setTimeout(calcTotal, 0) }} placeholder="102.48" type="number" />
+   398→   398→          </Field>
+   399→   399→          <Field label="Aguinaldo Proporcional (texto)">
+   400→   400→            <FieldInput value={form.montoAguinaldoTexto} onChange={v => set('montoAguinaldoTexto', v)} />
+   401→   401→          </Field>
+   402→   402→          <Field label="TOTAL ($)">
+   403→   403→            <Input value={form.montoTotal} readOnly className="h-9 text-sm font-bold bg-muted" />
+   404→   404→          </Field>
+   405→   405→        </div>
+   406→   406→      </div>
+   407→   407→
+   408→   408→      {/* Testigos */}
+   409→   409→      <div>
+   410→   410→        <h3 className="text-sm font-semibold mb-3 flex items-center gap-2"><Users className="h-4 w-4" /> Testigos</h3>
+   411→   411→        <div className="space-y-4">
+   412→   412→          <p className="text-xs font-medium text-muted-foreground">Testigo 1</p>
+   413→   413→          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+   414→   414→            <Field label="Nombre"><FieldInput value={form.testigo1Nombre} onChange={v => set('testigo1Nombre', v)} /></Field>
+   415→   415→            <Field label="DUI"><FieldInput value={form.testigo1Dui} onChange={v => set('testigo1Dui', v)} /></Field>
+   416→   416→            <Field label="Edad"><FieldInput value={form.testigo1Edad} onChange={v => set('testigo1Edad', v)} /></Field>
+   417→   417→            <Field label="Profesión"><FieldInput value={form.testigo1Profesion} onChange={v => set('testigo1Profesion', v)} /></Field>
+   418→   418→            <Field label="Domicilio"><FieldInput value={form.testigo1Domicilio} onChange={v => set('testigo1Domicilio', v)} /></Field>
+   419→   419→          </div>
+   420→   420→          <p className="text-xs font-medium text-muted-foreground">Testigo 2</p>
+   421→   421→          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+   422→   422→            <Field label="Nombre"><FieldInput value={form.testigo2Nombre} onChange={v => set('testigo2Nombre', v)} /></Field>
+   423→   423→            <Field label="DUI"><FieldInput value={form.testigo2Dui} onChange={v => set('testigo2Dui', v)} /></Field>
+   424→   424→            <Field label="Edad"><FieldInput value={form.testigo2Edad} onChange={v => set('testigo2Edad', v)} /></Field>
+   425→   425→            <Field label="Profesión"><FieldInput value={form.testigo2Profesion} onChange={v => set('testigo2Profesion', v)} /></Field>
+   426→   426→            <Field label="Domicilio"><FieldInput value={form.testigo2Domicilio} onChange={v => set('testigo2Domicilio', v)} /></Field>
+   427→   427→          </div>
+   428→   428→        </div>
+   429→   429→      </div>
+   430→   430→
+   431→   431→      {/* Notario */}
+   432→   432→      <div>
+   433→   433→        <h3 className="text-sm font-semibold mb-3 flex items-center gap-2"><ScrollText className="h-4 w-4" /> Notario</h3>
+   434→   434→        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+   435→   435→          <Field label="Nombre del Notario"><FieldInput value={form.notarioNombre} onChange={v => set('notarioNombre', v)} placeholder="Ej: OSCAR DAVID ANDURAY HERRERA" /></Field>
+   436→   436→          <Field label="Domicilio Notario"><FieldInput value={form.notarioDomicilio} onChange={v => set('notarioDomicilio', v)} /></Field>
+   437→   437→          <Field label="Lugar y Fecha"><FieldInput value={form.lugarFecha} onChange={v => set('lugarFecha', v)} placeholder="Ej: Distrito de Colón, La Libertad, 23 de junio de 2026" /></Field>
+   438→   438→          <Field label="Hora"><FieldInput value={form.hora} onChange={v => set('hora', v)} placeholder="Ej: 10:30" /></Field>
+   439→   439→        </div>
+   440→   440→      </div>
+   441→   441→
+   442→   442→      <div className="flex gap-2 pt-4 border-t">
+   443→   443→        <Button onClick={handleSave} className="gap-2"><Save className="h-4 w-4" /> Guardar</Button>
+   444→   444→        <Button variant="outline" onClick={onCancel}>Cancelar</Button>
+   445→   445→      </div>
+   446→   446→    </div>
+   447→   447→  )
+   448→   448→}
+   449→   449→
+   450→   450→// ============ MAIN PAGE ============
+   451→   451→export default function Home() {
+   452→   452→  const [tab, setTab] = useState('contratos')
+   453→   453→  const [contratos, setContratos] = useState<ContratoData[]>([])
+   454→   454→  const [finiquitos, setFiniquitos] = useState<FiniquitoData[]>([])
+   455→   455→  const [editingContrato, setEditingContrato] = useState<ContratoData | null>(null)
+   456→   456→  const [editingFiniquito, setEditingFiniquito] = useState<FiniquitoData | null>(null)
+   457→   457→  const [viewingContrato, setViewingContrato] = useState<ContratoData | null>(null)
+   458→   458→  const [viewingFiniquito, setViewingFiniquito] = useState<FiniquitoData | null>(null)
+   459→   459→  const [dialogOpen, setDialogOpen] = useState(false)
+   460→   460→  const [loading, setLoading] = useState(false)
+   461→   461→
+   462→   462→  useEffect(() => {
+   463→   463→    fetch('/api/contratos').then(r => r.json()).then(d => setContratos(d)).catch(() => {})
+   464→   464→    fetch('/api/finiquitos').then(r => r.json()).then(d => setFiniquitos(d)).catch(() => {})
+   465→   465→  }, [])
+   466→   466→
+   467→   467→  const saveContrato = async (data: ContratoData) => {
+   468→   468→    setLoading(true)
+   469→   469→    try {
+   470→   470→      if (data.id) {
+   471→   471→        await fetch(`/api/contratos/${data.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+   472→   472→        toast.success('Contrato actualizado')
+   473→   473→      } else {
+   474→   474→        await fetch('/api/contratos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+   475→   475→        toast.success('Contrato creado')
+   476→   476→      }
+   477→   477→      setDialogOpen(false); setEditingContrato(null)
+   478→   478→      fetchContratos()
+   479→   479→    } catch { toast.error('Error al guardar') }
+   480→   480→    setLoading(false)
+   481→   481→  }
+   482→   482→
+   483→   483→  const saveFiniquito = async (data: FiniquitoData) => {
+   484→   484→    setLoading(true)
+   485→   485→    try {
+   486→   486→      if (data.id) {
+   487→   487→        await fetch(`/api/finiquitos/${data.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+   488→   488→        toast.success('Finiquito actualizado')
+   489→   489→      } else {
+   490→   490→        await fetch('/api/finiquitos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+   491→   491→        toast.success('Finiquito creado')
+   492→   492→      }
+   493→   493→      setDialogOpen(false); setEditingFiniquito(null)
+   494→   494→      fetchFiniquitos()
+   495→   495→    } catch { toast.error('Error al guardar') }
+   496→   496→    setLoading(false)
+   497→   497→  }
+   498→   498→
+   499→   499→  const deleteContrato = async (id: number) => {
+   500→   500→    if (!confirm('¿Eliminar este contrato?')) return
+   501→   501→    await fetch(`/api/contratos/${id}`, { method: 'DELETE' })
+   502→   502→    toast.success('Contrato eliminado')
+   503→   503→    fetchContratos()
+   504→   504→  }
+   505→   505→
+   506→   506→  const deleteFiniquito = async (id: number) => {
+   507→   507→    if (!confirm('¿Eliminar este finiquito?')) return
+   508→   508→    await fetch(`/api/finiquitos/${id}`, { method: 'DELETE' })
+   509→   509→    toast.success('Finiquito eliminado')
+   510→   510→    fetchFiniquitos()
+   511→   511→  }
+   512→   512→
+   513→   513→  return (
+   514→   514→    <div className="min-h-screen flex flex-col">
+   515→   515→      <header className="border-b bg-background/80 backdrop-blur-sm sticky top-0 z-50">
+   516→   516→        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+   517→   517→          <div className="flex items-center gap-3">
+   518→   518→            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+   519→   519→              <FileText className="w-4 h-4 text-white" />
+   520→   520→            </div>
+   521→   521→            <div>
+   522→   522→              <h1 className="text-base font-bold tracking-tight">DONGBU - RRHH</h1>
+   523→   523→              <p className="text-[11px] text-muted-foreground">Contrataciones y Finiquitos</p>
+   524→   524→            </div>
+   525→   525→          </div>
+   526→   526→          <Badge variant="outline" className="text-[10px]">{contratos.length} contratos · {finiquitos.length} finiquitos</Badge>
+   527→   527→        </div>
+   528→   528→      </header>
+   529→   529→
+   530→   530→      <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-6 space-y-6">
+   531→   531→        <Tabs value={tab} onValueChange={setTab}>
+   532→   532→          <div className="flex items-center justify-between">
+   533→   533→            <TabsList className="grid w-auto grid-cols-2">
+   534→   534→              <TabsTrigger value="contratos" className="gap-1.5 text-sm"><Briefcase className="h-4 w-4" /> Contratos</TabsTrigger>
+   535→   535→              <TabsTrigger value="finiquitos" className="gap-1.5 text-sm"><ScrollText className="h-4 w-4" /> Finiquitos</TabsTrigger>
+   536→   536→            </TabsList>
+   537→   537→            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+   538→   538→              <DialogTrigger asChild>
+   539→   539→                <Button className="gap-1.5" onClick={() => {
+   540→   540→                  if (tab === 'contratos') setEditingContrato({ ...emptyContrato })
+   541→   541→                  else setEditingFiniquito({ ...emptyFiniquito })
+   542→   542→                }}>
+   543→   543→                  <Plus className="h-4 w-4" /> Nuevo
+   544→   544→                </Button>
+   545→   545→              </DialogTrigger>
+   546→   546→              <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+   547→   547→                <DialogHeader>
+   548→   548→                  <DialogTitle>
+   549→   549→                    {tab === 'contratos'
+   550→   550→                      ? (editingContrato?.id ? 'Editar Contrato' : 'Nuevo Contrato')
+   551→   551→                      : (editingFiniquito?.id ? 'Editar Finiquito' : 'Nuevo Finiquito')}
+   552→   552→                  </DialogTitle>
+   553→   553→                </DialogHeader>
+   554→   554→                {tab === 'contratos' && editingContrato && (
+   555→   555→                  <ContratoForm
+   556→   556→                    initial={editingContrato}
+   557→   557→                    onSave={saveContrato}
+   558→   558→                    onCancel={() => { setDialogOpen(false); setEditingContrato(null) }}
+   559→   559→                  />
+   560→   560→                )}
+   561→   561→                {tab === 'finiquitos' && editingFiniquito && (
+   562→   562→                  <FiniquitoForm
+   563→   563→                    initial={editingFiniquito}
+   564→   564→                    onSave={saveFiniquito}
+   565→   565→                    onCancel={() => { setDialogOpen(false); setEditingFiniquito(null) }}
+   566→   566→                  />
+   567→   567→                )}
+   568→   568→              </DialogContent>
+   569→   569→            </Dialog>
+   570→   570→          </div>
+   571→   571→
+   572→   572→          {/* CONTRATOS TAB */}
+   573→   573→          <TabsContent value="contratos" className="space-y-4">
+   574→   574→            {contratos.length === 0 ? (
+   575→   575→              <Card>
+   576→   576→                <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+   577→   577→                  <Briefcase className="h-12 w-12 text-muted-foreground/30 mb-3" />
+   578→   578→                  <p className="text-sm font-medium text-muted-foreground">Sin contratos registrados</p>
+   579→   579→                  <p className="text-xs text-muted-foreground/70 mt-1">Haz clic en &quot;Nuevo&quot; para crear tu primer contrato</p>
+   580→   580→                </CardContent>
+   581→   581→              </Card>
+   582→   582→            ) : (
+   583→   583→              <div className="grid gap-3">
+   584→   584→                {contratos.map(c => (
+   585→   585→                  <Card key={c.id} className="hover:shadow-md transition-shadow">
+   586→   586→                    <CardContent className="p-4">
+   587→   587→                      <div className="flex items-start justify-between gap-4">
+   588→   588→                        <div className="space-y-1 min-w-0">
+   589→   589→                          <p className="font-semibold text-sm truncate">{c.nombreTrabajador}</p>
+   590→   590→                          <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+   591→   591→                            <span>DUI: {c.dui}</span>
+   592→   592→                            {c.posicion && <span>· {c.posicion}</span>}
+   593→   593→                            {c.fechaInicio && <span>· Desde: {c.fechaInicio}</span>}
+   594→   594→                          </div>
+   595→   595→                        </div>
+   596→   596→                        <div className="flex items-center gap-1 shrink-0">
+   597→   597→                          <Badge variant={c.estado === 'activo' ? 'default' : 'secondary'} className="text-[10px]">
+   598→   598→                            {c.estado}
+   599→   599→                          </Badge>
+   600→   600→                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+   601→   601→                            setViewingContrato(c)
+   602→   602→                          }}><Eye className="h-3.5 w-3.5" /></Button>
+   603→   603→                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+   604→   604→                            setEditingContrato(c); setDialogOpen(true)
+   605→   605→                          }}><Edit3 className="h-3.5 w-3.5" /></Button>
+   606→   606→                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => deleteContrato(c.id!)}>
+   607→   607→                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+   608→   608→                          </Button>
+   609→   609→                        </div>
+   610→   610→                      </div>
+   611→   611→                    </CardContent>
+   612→   612→                  </Card>
+   613→   613→                ))}
+   614→   614→              </div>
+   615→   615→            )}
+   616→   616→          </TabsContent>
+   617→   617→
+   618→   618→          {/* FINIQUITOS TAB */}
+   619→   619→          <TabsContent value="finiquitos" className="space-y-4">
+   620→   620→            {finiquitos.length === 0 ? (
+   621→   621→              <Card>
+   622→   622→                <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+   623→   623→                  <ScrollText className="h-12 w-12 text-muted-foreground/30 mb-3" />
+   624→   624→                  <p className="text-sm font-medium text-muted-foreground">Sin finiquitos registrados</p>
+   625→   625→                  <p className="text-xs text-muted-foreground/70 mt-1">Haz clic en &quot;Nuevo&quot; para crear tu primer finiquito</p>
+   626→   626→                </CardContent>
+   627→   627→              </Card>
+   628→   628→            ) : (
+   629→   629→              <div className="grid gap-3">
+   630→   630→                {finiquitos.map(f => (
+   631→   631→                  <Card key={f.id} className="hover:shadow-md transition-shadow">
+   632→   632→                    <CardContent className="p-4">
+   633→   633→                      <div className="flex items-start justify-between gap-4">
+   634→   634→                        <div className="space-y-1 min-w-0">
+   635→   635→                          <p className="font-semibold text-sm truncate">{f.nombreTrabajador}</p>
+   636→   636→                          <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+   637→   637→                            <span>DUI: {f.dui}</span>
+   638→   638→                            {f.posicion && <span>· {f.posicion}</span>}
+   639→   639→                            {f.fechaFin && <span>· Fin: {f.fechaFin}</span>}
+   640→   640→                            {f.montoTotal && <span className="font-medium text-foreground">· ${f.montoTotal}</span>}
+   641→   641→                          </div>
+   642→   642→                        </div>
+   643→   643→                        <div className="flex items-center gap-1 shrink-0">
+   644→   644→                          <Badge variant={f.estado === 'firmado' ? 'default' : 'secondary'} className="text-[10px]">
+   645→   645→                            {f.estado}
+   646→   646→                          </Badge>
+   647→   647→                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+   648→   648→                            setEditingFiniquito(f); setDialogOpen(true)
+   649→   649→                          }}><Edit3 className="h-3.5 w-3.5" /></Button>
+   650→   650→                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => deleteFiniquito(f.id!)}>
+   651→   651→                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+   652→   652→                          </Button>
+   653→   653→                        </div>
+   654→   654→                      </div>
+   655→   655→                    </CardContent>
+   656→   656→                  </Card>
+   657→   657→                ))}
+   658→   658→              </div>
+   659→   659→            )}
+   660→   660→          </TabsContent>
+   661→   661→        </Tabs>
+   662→   662→
+   663→   663→        {/* View Contrato Detail */}
+   664→   664→        <Dialog open={!!viewingContrato} onOpenChange={() => setViewingContrato(null)}>
+   665→   665→          <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+   666→   666→            <DialogHeader><DialogTitle>Detalle del Contrato</DialogTitle></DialogHeader>
+   667→   667→            {viewingContrato && (
+   668→   668→              <div className="space-y-4 text-sm">
+   669→   669→                <div className="grid grid-cols-2 gap-3">
+   670→   670→                  <div><span className="text-muted-foreground text-xs">Nombre:</span><p className="font-medium">{viewingContrato.nombreTrabajador}</p></div>
+   671→   671→                  <div><span className="text-muted-foreground text-xs">DUI:</span><p className="font-medium">{viewingContrato.dui}</p></div>
+   672→   672→                  <div><span className="text-muted-foreground text-xs">Posición:</span><p className="font-medium">{viewingContrato.posicion}</p></div>
+   673→   673→                  <div><span className="text-muted-foreground text-xs">Salario:</span><p className="font-medium">${viewingContrato.salario}</p></div>
+   674→   674→                  <div><span className="text-muted-foreground text-xs">Fecha Inicio:</span><p className="font-medium">{viewingContrato.fechaInicio}</p></div>
+   675→   675→                  <div><span className="text-muted-foreground text-xs">Duración:</span><p className="font-medium">{viewingContrato.duracion}</p></div>
+   676→   676→                </div>
+   677→   677→                {viewingContrato.dependientes && viewingContrato.dependientes !== '[]' && (
+   678→   678→                  <div>
+   679→   679→                    <p className="font-medium mb-2">Personas que dependen económicamente:</p>
+   680→   680→                    <Table>
+   681→   681→                      <TableHeader><TableRow><TableHead>Nombre</TableHead><TableHead>Parentesco</TableHead><TableHead>Contacto</TableHead></TableRow></TableHeader>
+   682→   682→                      <TableBody>
+   683→   683→                        {JSON.parse(viewingContrato.dependientes).map((d: Dependiente, i: number) => (
+   684→   684→                          <TableRow key={i}><TableCell>{d.nombre}</TableCell><TableCell>{d.parentesco}</TableCell><TableCell>{d.contacto}</TableCell></TableRow>
+   685→   685→                        ))}
+   686→   686→                      </TableBody>
+   687→   687→                    </Table>
+   688→   688→                  </div>
+   689→   689→                )}
+   690→   690→              </div>
+   691→   691→            )}
+   692→   692→          </DialogContent>
+   693→   693→        </Dialog>
+   694→   694→      </main>
+   695→   695→
+   696→   696→      <footer className="border-t mt-auto">
+   697→   697→        <div className="max-w-6xl mx-auto px-4 py-3 text-center text-xs text-muted-foreground">
+   698→   698→          DONGBU CORPORATION - Sistema de Contrataciones y Finiquitos
+   699→   699→        </div>
+   700→   700→      </footer>
+   701→   701→    </div>
+   702→   702→  )
+   703→   703→}
+   704→   704→

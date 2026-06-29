@@ -7,8 +7,9 @@ export async function GET() {
       orderBy: { createdAt: 'desc' },
     });
     return NextResponse.json(contratos);
-  } catch {
-    return NextResponse.json({ error: 'Error al obtener contratos' }, { status: 500 });
+  } catch (err) {
+    console.error('GET /api/contratos error:', err);
+    return NextResponse.json({ error: 'Error al obtener contratos', detail: String(err) }, { status: 500 });
   }
 }
 
@@ -17,7 +18,8 @@ export async function POST(request: Request) {
     const body = await request.json();
     const contrato = await db.contrato.create({ data: body });
     return NextResponse.json(contrato, { status: 201 });
-  } catch {
-    return NextResponse.json({ error: 'Error al crear contrato' }, { status: 500 });
+  } catch (err) {
+    console.error('POST /api/contratos error:', err);
+    return NextResponse.json({ error: 'Error al crear contrato', detail: String(err) }, { status: 500 });
   }
 }

@@ -1,0 +1,28 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "Servidor corriendo y APIs funcionando! Ambos retornan 200. Ahora verifico con el navegador.  \nRan 1 commands >  \n📄 Todos 4  \n✅ Push Prisma schema to create DB tables  \n✅ Fix runtime error contratos.map is not a func...  \n✅ Start dev server and verify module works  \n○ Browser verification of contrataciones y finiq...  \n\nRan 7 commands >  \nLos APIs funcionan perfectamente — retorman [] (arreglos vacíos, sin datos aún). Ahora verifico con el navegador. El servidor se cae cuando termina el bash, así que lo mantengo vivo.  \n\nRan 1 commands >",
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 1782750041,
+  "id": "2026063000203759a0fa0edfcc4538",
+  "model": "glm-4.6v",
+  "object": "chat.completion",
+  "request_id": "2026063000203759a0fa0edfcc4538",
+  "usage": {
+    "completion_tokens": 148,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "prompt_tokens": 409,
+    "prompt_tokens_details": {
+      "cached_tokens": 4
+    },
+    "total_tokens": 557
+  }
+}
